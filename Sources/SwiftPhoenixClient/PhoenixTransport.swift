@@ -77,21 +77,21 @@ public protocol PhoenixTransportDelegate {
    
    - Parameter error: Error from the underlying `Transport` implementation
    */
-  func onError(error: Error)
+  func onError(error: Error) async
   
   /**
    Notified when the `Transport` receives a message from the server.
    
    - Parameter message: Message received from the server
    */
-  func onMessage(message: String)
+  func onMessage(message: String) async
   
   /**
    Notified when the `Transport` closes.
    
    - Parameter code: Code that was sent when the `Transport` closed
    */
-  func onClose(code: Int)
+  func onClose(code: Int) async
 }
 
 //----------------------------------------------------------------------
@@ -220,75 +220,83 @@ public class URLSessionTransport: NSObject, PhoenixTransport, URLSessionWebSocke
       // TODO: What is the behavior when an error occurs?
     }
   }
-  
-  
-  // MARK: - URLSessionWebSocketDelegate
-  public func urlSession(_ session: URLSession,
-                         webSocketTask: URLSessionWebSocketTask,
-                         didOpenWithProtocol protocol: String?) {
-    // The Websocket is connected. Set Transport state to open and inform delegate
-    self.readyState = .open
-    self.delegate?.onOpen()
-    
-    // Start receiving messages
-    self.receive()
-  }
-  
+
+
+    // MARK: - URLSessionWebSocketDelegate
+    public func urlSession(_ session: URLSession,
+                           webSocketTask: URLSessionWebSocketTask,
+                           didOpenWithProtocol protocol: String?) {
+        // The Websocket is connected. Set Transport state to open and inform delegate
+        Task {
+            self.readyState = .open
+            self.delegate?.onOpen()
+
+            // Start receiving messages
+            await self.receive()
+        }
+    }
+
   public func urlSession(_ session: URLSession,
                          webSocketTask: URLSessionWebSocketTask,
                          didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
                          reason: Data?) {
-    // A close frame was received from the server.
-    self.readyState = .closed
-    self.delegate?.onClose(code: closeCode.rawValue)
+      Task {
+          // A close frame was received from the server.
+          self.readyState = .closed
+          await self.delegate?.onClose(code: closeCode.rawValue)
+      }
   }
   
   public func urlSession(_ session: URLSession,
                          task: URLSessionTask,
                          didCompleteWithError error: Error?) {
-    // The task has terminated. Inform the delegate that the transport has closed abnormally
-    // if this was caused by an error.
-    guard let err = error else { return }
-    self.abnormalErrorReceived(err)
+      Task {
+          // The task has terminated. Inform the delegate that the transport has closed abnormally
+          // if this was caused by an error.
+          guard let err = error else { return }
+          await self.abnormalErrorReceived(err)
+      }
   }
   
   
   // MARK: - Private
-  private func receive() {
+  private func receive() async {
     self.task?.receive { result in
-      switch result {
-      case .success(let message):
-        switch message {
-        case .data:
-          print("Data received. This method is unsupported by the Client")
-        case .string(let text):
-          self.delegate?.onMessage(message: text)
-        default:
-          fatalError("Unknown result was received. [\(result)]")
+        Task {
+            switch result {
+            case .success(let message):
+              switch message {
+              case .data:
+                print("Data received. This method is unsupported by the Client")
+              case .string(let text):
+                await self.delegate?.onMessage(message: text)
+              default:
+                fatalError("Unknown result was received. [\(result)]")
+              }
+
+              // Since `.receive()` is only good for a single message, it must
+              // be called again after a message is received in order to
+              // received the next message.
+              await self.receive()
+            case .failure(let error):
+              print("Error when receiving \(error)")
+              await self.abnormalErrorReceived(error)
+            }
         }
-        
-        // Since `.receive()` is only good for a single message, it must
-        // be called again after a message is received in order to
-        // received the next message.
-        self.receive()
-      case .failure(let error):
-        print("Error when receiving \(error)")
-        self.abnormalErrorReceived(error)
-      }
     }
   }
   
-  private func abnormalErrorReceived(_ error: Error) {
+  private func abnormalErrorReceived(_ error: Error) async {
     // Set the state of the Transport to closed
     self.readyState = .closed
     
     // Inform the Transport's delegate that an error occurred.
-    self.delegate?.onError(error: error)
+    await self.delegate?.onError(error: error)
     
     // An abnormal error is results in an abnormal closure, such as internet getting dropped
     // so inform the delegate that the Transport has closed abnormally. This will kick off
     // the reconnect logic.
-    self.delegate?.onClose(code: Socket.CloseCode.abnormal.rawValue)
+    await self.delegate?.onClose(code: Socket.CloseCode.abnormal.rawValue)
   }
 }
 
