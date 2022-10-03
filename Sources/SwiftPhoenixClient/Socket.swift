@@ -502,8 +502,9 @@ public class Socket: PhoenixTransportDelegate {
         var channels: [Channel] = []
 
         for storedChannel in self.channels {
-            guard await storedChannel.joinRef != channel.joinRef else { return }
-            channels.append(storedChannel)
+            if await storedChannel.joinRef != channel.joinRef {
+                channels.append(storedChannel)
+            }
         }
 
         self.channels = channels
@@ -642,8 +643,9 @@ public class Socket: PhoenixTransportDelegate {
 
         // Dispatch the message to all channels that belong to the topic
         for channel in self.channels {
-            guard await channel.isMember(message) else { return }
-            await channel.trigger(message)
+            if await channel.isMember(message) {
+                await channel.trigger(message)
+            }
         }
 
         // Inform all onMessage callbacks of the message
