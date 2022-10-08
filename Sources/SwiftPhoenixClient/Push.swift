@@ -22,7 +22,6 @@
 import Foundation
 import Combine
 
-
 /// Represnts pushing data to a `Channel` through the `Socket`
 public class Push {
 
@@ -58,6 +57,9 @@ public class Push {
 
     /// The event that is associated with the reference ID of the Push
     var refEvent: String?
+
+    /// Combine cancellables
+    private var cancellables = Set<AnyCancellable>()
 
     /// Initializes a Push
     ///
@@ -180,7 +182,7 @@ public class Push {
 
     /// Resets the Push as it was after it was first tnitialized.
     internal func reset() async  {
-        await self.cancelRefEvent()
+//        await self.cancelRefEvent()
         self.ref = nil
         self.refEvent = nil
         self.receivedMessage = nil
@@ -197,10 +199,10 @@ public class Push {
 //    }
 
     /// Reverses the result on channel.on(ChannelEvent, callback) that spawned the Push
-    private func cancelRefEvent() async {
-        guard let refEvent = self.refEvent else { return }
-        await self.channel?.off(refEvent)
-    }
+//    private func cancelRefEvent() async {
+//        guard let refEvent = self.refEvent else { return }
+//        await self.channel?.off(refEvent)
+//    }
 
     /// Cancel any ongoing Timeout Timer
     internal func cancelTimeout() {
@@ -227,19 +229,24 @@ public class Push {
         self.refEvent = refEvent
 
         /// If a response is received  before the Timer triggers, cancel timer
-        /// and match the recevied event to it's corresponding hook
-        await channel.delegateOn(refEvent, to: self) { (self, message) in
-            Task {
-                await self.cancelRefEvent()
-                self.cancelTimeout()
-                self.receivedMessage = message
+        /// and match the recevied event to it's corresponding
+        await channel.messagePublisher
+            .filter { $0.event == refEvent }
+//            .timeout(.seconds(10),
+//                     scheduler: DispatchQueue.global(),
+//                     customError: {PushError.timeout(event: event,payload: payload) } )
+            .sink { [weak self] message in
+                Task { [weak self] in
+                    // await self?.cancelRefEvent()
+                    self?.cancelTimeout()
+                    self?.receivedMessage = message
 
-                /// Check if there is event a status available
-                guard message.status != nil else { return }
-                self.messagePublisher.send(message)
-//                self.matchReceive(status, message: message)
+                    /// Check if there is event a status available
+                    guard message.status != nil else { return }
+                    self?.messagePublisher.send(message)
+                }
             }
-        }
+            .store(in: &cancellables)
 
         /// Setup and start the Timeout timer.
         let workItem = DispatchWorkItem { [weak self] in

@@ -20,6 +20,7 @@
 
 
 import Foundation
+import Combine
 
 /// The Presence object provides features for syncing presence information from
 /// the server with the client and handling presences joining and leaving.
@@ -174,6 +175,8 @@ public final class Presence {
     /// The channel's joinRef, set when state events occur
     private(set) public var joinRef: String?
 
+    private var cancellables = Set<AnyCancellable>()
+
     public func isPendingSyncState() async -> Bool {
         guard let safeJoinRef = self.joinRef else { return true }
         return await safeJoinRef != self.channel?.joinRef
@@ -230,43 +233,50 @@ public final class Presence {
             let stateEvent = opts.events[.state],
             let diffEvent = opts.events[.diff] else { return }
 
+        await self.channel?.messagePublisher
+            .filter { $0.event == stateEvent }
+            .sink { [weak self] message in
+                Task { [weak self] in
+                    guard let presence = self,
+                          let newState = message.rawPayload as? State else { return }
 
-        await self.channel?.delegateOn(stateEvent, to: self) { (self, message) in
-            Task {
-                guard let newState = message.rawPayload as? State else { return }
+                    presence.joinRef = await presence.channel?.joinRef
+                    presence.state = Presence.syncState(presence.state,
+                                                        newState: newState,
+                                                        onJoin: presence.caller.onJoin,
+                                                        onLeave: presence.caller.onLeave)
 
-                self.joinRef = await self.channel?.joinRef
-                self.state = Presence.syncState(self.state,
-                                                newState: newState,
-                                                onJoin: self.caller.onJoin,
-                                                onLeave: self.caller.onLeave)
+                    presence.pendingDiffs.forEach({ (diff) in
+                        presence.state = Presence.syncDiff(presence.state,
+                                                           diff: diff,
+                                                           onJoin: presence.caller.onJoin,
+                                                           onLeave: presence.caller.onLeave)
+                    })
 
-                self.pendingDiffs.forEach({ (diff) in
-                    self.state = Presence.syncDiff(self.state,
-                                                   diff: diff,
-                                                   onJoin: self.caller.onJoin,
-                                                   onLeave: self.caller.onLeave)
-                })
-
-                self.pendingDiffs = []
-                self.caller.onSync()
-            }
-        }
-
-        await self.channel?.delegateOn(diffEvent, to: self) { (self, message) in
-            Task {
-                guard let diff = message.rawPayload as? Diff else { return }
-                if await self.isPendingSyncState() {
-                    self.pendingDiffs.append(diff)
-                } else {
-                    self.state = Presence.syncDiff(self.state,
-                                                   diff: diff,
-                                                   onJoin: self.caller.onJoin,
-                                                   onLeave: self.caller.onLeave)
-                    self.caller.onSync()
+                    presence.pendingDiffs = []
+                    presence.caller.onSync()
                 }
             }
-        }
+            .store(in: &cancellables)
+
+        await self.channel?.messagePublisher
+            .filter { $0.event == diffEvent }
+            .sink { [weak self] message in
+                Task { [weak self] in
+                    guard let presence = self,
+                          let diff = message.rawPayload as? Diff else { return }
+                    if await presence.isPendingSyncState() {
+                        presence.pendingDiffs.append(diff)
+                    } else {
+                        presence.state = Presence.syncDiff(presence.state,
+                                                           diff: diff,
+                                                           onJoin: presence.caller.onJoin,
+                                                           onLeave: presence.caller.onLeave)
+                        presence.caller.onSync()
+                    }
+                }
+            }
+            .store(in: &cancellables)
     }
 
     /// Returns the array of presences, with deault selected metadata.

@@ -22,20 +22,6 @@ import Swift
 import Combine
 import Foundation
 
-/// Container class of bindings to the channel
-struct Binding {
-
-    // The event that the Binding is bound to
-    let event: String
-
-    // The reference number of the Binding
-    let ref: Int
-
-    // The callback to be triggered
-    let callback: Delegated<Message, Void>
-}
-
-
 ///
 /// Represents a Channel which is bound to a topic
 ///
@@ -75,11 +61,8 @@ public actor Channel {
     /// Current state of the Channel
     var state: ChannelState
 
-    /// Collection of event bindings
-    var bindingsDel: [Binding]
-
-    /// Tracks event binding ref counters
-    var bindingRef: Int
+    /// Publishes bindings
+    public var messagePublisher = PassthroughSubject<Message, Never>()
 
     /// Timout when attempting to join a Channel
     var timeout: TimeInterval
@@ -112,8 +95,6 @@ public actor Channel {
         self.topic = topic
         self.params = params
         self.socket = socket
-        self.bindingsDel = []
-        self.bindingRef = 0
         self.timeout = socket.timeout
         self.joinedOnce = false
         self.pushBuffer = []
@@ -190,56 +171,69 @@ public actor Channel {
             .store(in: &cancellables)
 
         /// Perfom when the Channel has been closed
-        self.delegateOnClose(to: self) { (self, _) in
-            Task {
-                // Reset any timer that may be on-going
-                await self.rejoinTimer.reset()
+        messagePublisher
+            .filter { $0.event == ChannelEvent.close }
+            .sink { [weak self] message in
+                Task { [weak self] in
+                    // Reset any timer that may be on-going
+                    await self?.rejoinTimer.reset()
 
-                // Log that the channel was left
-                await self.socket?.logItems("channel", "close topic: \(self.topic) joinRef: \(await self.joinRef ?? "nil")")
+                    // Log that the channel was left
+                    await self?.socket?.logItems("channel",
+                                                 "close topic: \(self?.topic) joinRef: \(await self?.joinRef ?? "nil")")
 
-                // Mark the channel as closed and remove it from the socket
-                await self.update(state: .closed)
-                await self.socket?.remove(self)
+                    // Mark the channel as closed and remove it from the socket
+                    await self?.update(state: .closed)
+                    guard let channel = self else { return }
+                    await self?.socket?.remove(channel)
+                }
             }
-        }
+            .store(in: &cancellables)
 
         /// Perfom when the Channel errors
-        self.delegateOnError(to: self) { (self, message) in
-            Task {
-                // Log that the channel received an error
-                await self.socket?.logItems("channel", "error topic: \(self.topic) joinRef: \(await self.joinRef ?? "nil") mesage: \(message)")
+        messagePublisher
+            .filter { $0.event == ChannelEvent.error }
+            .sink { [weak self] message in
+                Task { [weak self] in
+                    // Log that the channel received an error
+                    await self?.socket?.logItems("channel",
+                                                 "error topic: \(self?.topic) joinRef: \(await self?.joinRef ?? "nil") message: \(message)")
 
-                // If error was received while joining, then reset the Push
-                if await (self.isJoining) {
-                    // Make sure that the "phx_join" isn't buffered to send once the socket
-                    // reconnects. The channel will send a new join event when the socket connects.
-                    if let safeJoinRef = await self.joinRef {
-                        await self.socket?.removeFromSendBuffer(ref: safeJoinRef)
+                    // If error was received while joining, then reset the Push
+                    if await (self?.isJoining ?? false) {
+                        // Make sure that the "phx_join" isn't buffered to send once the socket
+                        // reconnects. The channel will send a new join event when the socket connects.
+                        if let safeJoinRef = await self?.joinRef {
+                            await self?.socket?.removeFromSendBuffer(ref: safeJoinRef)
+                        }
+
+                        // Reset the push to be used again later
+                        await self?.joinPush.reset()
                     }
 
-                    // Reset the push to be used again later
-                    await self.joinPush.reset()
-                }
-
-                // Mark the channel as errored and attempt to rejoin if socket is currently connected
-                await self.update(state: .errored)
-                if await (self.socket?.isConnected == true) {
-                    await self.rejoinTimer.scheduleTimeout()
+                    // Mark the channel as errored and attempt to rejoin if socket is currently connected
+                    await self?.update(state: .errored)
+                    if await (self?.socket?.isConnected == true) {
+                        await self?.rejoinTimer.scheduleTimeout()
+                    }
                 }
             }
-        }
+            .store(in: &cancellables)
 
         // Perform when the join reply is received
-        self.delegateOn(ChannelEvent.reply, to: self) { (self, message) in
-            Task {
-                // Trigger bindings
-                await self.trigger(event: self.replyEventName(message.ref),
-                                   payload: message.rawPayload,
-                                   ref: message.ref,
-                                   joinRef: message.joinRef)
+        messagePublisher
+            .filter { $0.event == ChannelEvent.reply }
+            .sink { [weak self] message in
+                Task { [weak self] in
+                    guard let event = await self?.replyEventName(message.ref) else { return }
+                    await self?.trigger(event: event,
+                                        payload: message.rawPayload,
+                                        ref: message.ref,
+                                        joinRef: message.joinRef)
+                }
             }
-        }
+            .store(in: &cancellables)
+
     }
 
     func handleJoinPush(error: PushError) {
@@ -322,10 +316,10 @@ public actor Channel {
     ///
     /// - parameter callback: Called when the Channel closes
     /// - return: Ref counter of the subscription. See `func off()`
-    @discardableResult
-    public func onClose(_ callback: @escaping ((Message) -> Void)) -> Int {
-        return self.on(ChannelEvent.close, callback: callback)
-    }
+//    @discardableResult
+//    public func onClose(_ callback: @escaping ((Message) -> Void)) -> Int {
+//        return self.on(ChannelEvent.close, callback: callback)
+//    }
 
     /// Hook into when the Channel is closed. Automatically handles retain
     /// cycles. Use `onClose()` to handle yourself.
@@ -340,11 +334,11 @@ public actor Channel {
     /// - parameter owner: Class registering the callback. Usually `self`
     /// - parameter callback: Called when the Channel closes
     /// - return: Ref counter of the subscription. See `func off()`
-    @discardableResult
-    public func delegateOnClose<Target: AnyObject>(to owner: Target,
-                                                   callback: @escaping ((Target, Message) -> Void)) -> Int {
-        return self.delegateOn(ChannelEvent.close, to: owner, callback: callback)
-    }
+//    @discardableResult
+//    public func delegateOnClose<Target: AnyObject>(to owner: Target,
+//                                                   callback: @escaping ((Target, Message) -> Void)) -> Int {
+//        return self.delegateOn(ChannelEvent.close, to: owner, callback: callback)
+//    }
 
     /// Hook into when the Channel receives an Error. Does not handle retain
     /// cycles. Use `delegateOnError(to:)` for automatic handling of retain
@@ -359,10 +353,10 @@ public actor Channel {
     ///
     /// - parameter callback: Called when the Channel closes
     /// - return: Ref counter of the subscription. See `func off()`
-    @discardableResult
-    public func onError(_ callback: @escaping ((_ message: Message) -> Void)) -> Int {
-        return self.on(ChannelEvent.error, callback: callback)
-    }
+//    @discardableResult
+//    public func onError(_ callback: @escaping ((_ message: Message) -> Void)) -> Int {
+//        return self.on(ChannelEvent.error, callback: callback)
+//    }
 
     /// Hook into when the Channel receives an Error. Automatically handles
     /// retain cycles. Use `onError()` to handle yourself.
@@ -377,11 +371,11 @@ public actor Channel {
     /// - parameter owner: Class registering the callback. Usually `self`
     /// - parameter callback: Called when the Channel closes
     /// - return: Ref counter of the subscription. See `func off()`
-    @discardableResult
-    public func delegateOnError<Target: AnyObject>(to owner: Target,
-                                                   callback: @escaping ((Target, Message) -> Void)) -> Int {
-        return self.delegateOn(ChannelEvent.error, to: owner, callback: callback)
-    }
+//    @discardableResult
+//    public func delegateOnError<Target: AnyObject>(to owner: Target,
+//                                                   callback: @escaping ((Target, Message) -> Void)) -> Int {
+//        return self.delegateOn(ChannelEvent.error, to: owner, callback: callback)
+//    }
 
     /// Subscribes on channel events. Does not handle retain cycles. Use
     /// `delegateOn(_:, to:)` for automatic handling of retain cycles.
@@ -406,13 +400,13 @@ public actor Channel {
     /// - parameter event: Event to receive
     /// - parameter callback: Called with the event's message
     /// - return: Ref counter of the subscription. See `func off()`
-    @discardableResult
-    public func on(_ event: String, callback: @escaping ((Message) -> Void)) -> Int {
-        var delegated = Delegated<Message, Void>()
-        delegated.manuallyDelegate(with: callback)
-
-        return self.on(event, delegated: delegated)
-    }
+//    @discardableResult
+//    public func on(_ event: String, callback: @escaping ((Message) -> Void)) -> Int {
+//        var delegated = Delegated<Message, Void>()
+//        delegated.manuallyDelegate(with: callback)
+//
+//        return self.on(event, delegated: delegated)
+//    }
 
 
     /// Subscribes on channel events. Automatically handles retain cycles. Use
@@ -439,25 +433,25 @@ public actor Channel {
     /// - parameter owner: Class registering the callback. Usually `self`
     /// - parameter callback: Called with the event's message
     /// - return: Ref counter of the subscription. See `func off()`
-    @discardableResult
-    public func delegateOn<Target: AnyObject>(_ event: String,
-                                              to owner: Target,
-                                              callback: @escaping ((Target, Message) -> Void)) -> Int {
-        var delegated = Delegated<Message, Void>()
-        delegated.delegate(to: owner, with: callback)
-
-        return self.on(event, delegated: delegated)
-    }
-
-    /// Shared method between `on` and `manualOn`
-    @discardableResult
-    private func on(_ event: String, delegated: Delegated<Message, Void>) -> Int {
-        let ref = bindingRef
-        self.bindingRef = ref + 1
-
-        self.bindingsDel.append(Binding(event: event, ref: ref, callback: delegated))
-        return ref
-    }
+//    @discardableResult
+//    public func delegateOn<Target: AnyObject>(_ event: String,
+//                                              to owner: Target,
+//                                              callback: @escaping ((Target, Message) -> Void)) -> Int {
+//        var delegated = Delegated<Message, Void>()
+//        delegated.delegate(to: owner, with: callback)
+//
+//        return self.on(event, delegated: delegated)
+//    }
+//
+//    /// Shared method between `on` and `manualOn`
+//    @discardableResult
+//    private func on(_ event: String, delegated: Delegated<Message, Void>) -> Int {
+//        let ref = bindingRef
+//        self.bindingRef = ref + 1
+//
+//        self.bindingsDel.append(Binding(event: event, ref: ref, callback: delegated))
+//        return ref
+//    }
 
     /// Unsubscribes from a channel event. If a `ref` is given, only the exact
     /// listener will be removed. Else all listeners for the `event` will be
@@ -478,11 +472,11 @@ public actor Channel {
     ///
     /// - parameter event: Event to unsubscribe from
     /// - paramter ref: Ref counter returned when subscribing. Can be omitted
-    public func off(_ event: String, ref: Int? = nil) {
-        self.bindingsDel.removeAll { (bind) -> Bool in
-            bind.event == event && (ref == nil || ref == bind.ref)
-        }
-    }
+//    public func off(_ event: String, ref: Int? = nil) {
+//        self.bindingsDel.removeAll { (bind) -> Bool in
+//            bind.event == event && (ref == nil || ref == bind.ref)
+//        }
+//    }
 
     /// Creates a Push with a payload for the Channel
     ///
@@ -685,9 +679,7 @@ public actor Channel {
     func trigger(_ message: Message) {
         let handledMessage = self.onMessage(message)
 
-        self.bindingsDel
-            .filter( { return $0.event == message.event } )
-            .forEach( { $0.callback.call(handledMessage) } )
+        self.messagePublisher.send(message)
     }
 
     /// Triggers an event to the correct event bindings created by
