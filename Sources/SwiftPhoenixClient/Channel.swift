@@ -19,6 +19,7 @@
 // THE SOFTWARE.
 
 import Swift
+import Combine
 import Foundation
 
 /// Container class of bindings to the channel
@@ -61,7 +62,7 @@ import Foundation
 public actor Channel {
 
     /// The topic of the Channel. e.g. "rooms:friends"
-    public let topic: String
+    public nonisolated let topic: String
 
     /// The params sent when joining the channel
     public var params: Payload {
@@ -98,6 +99,9 @@ public actor Channel {
     /// Refs of stateChange hooks
     var stateChangeRefs: [String]
 
+    /// Combine cancellables
+    private var cancellables = Set<AnyCancellable>()
+
     /// Initialize a Channel
     ///
     /// - parameter topic: Topic of the Channel
@@ -122,6 +126,7 @@ public actor Channel {
                              payload: params,
                              timeout: socket.timeout)
         self.setupDelegates()
+        self.setupJoinPushSinks()
     }
 
     func setupDelegates() {
@@ -150,55 +155,39 @@ public actor Channel {
             }
         })
         if let ref = onOpenRef { self.stateChangeRefs.append(ref) }
+    }
 
+    func setupJoinPushSinks() {
         /// Handle when a response is received after join()
-        self.joinPush.delegateReceive("ok", to: self) { (self, _) in
-            Task {
-                // Mark the Channel as joined
-                await self.update(state: ChannelState.joined)
-
-                // Reset the timer, preventing it from attempting to join again
-                await self.rejoinTimer.reset()
-
-                // Send and buffered messages and clear the buffer
-                for element in await self.pushBuffer {
-                    await element.send()
+        joinPush
+            .messagePublisher
+            .compactMap { $0 }
+            .filter { $0.status == "ok"}
+            .sink(receiveCompletion: { [weak self] in
+                switch $0 {
+                case .failure(let error):
+                    Task { [weak self] in await self?.handleJoinPush(error: error) }
+                default:
+                    break
                 }
-                await self.clearPushBuffer()
-            }
-        }
+            }, receiveValue: { [weak self] _ in
+                Task { [weak self] in
+                    // Mark the Channel as joined
+                    await self?.update(state: ChannelState.joined)
 
-        // Perform if Channel errors while attempting to joi
-        self.joinPush.delegateReceive("error", to: self) { (self, _) in
-            Task {
-                await self.update(state: .errored)
-                if await (self.socket?.isConnected == true) {
-                    await self.rejoinTimer.scheduleTimeout()
+                    // Reset the timer, preventing it from attempting to join again
+                    await self?.rejoinTimer.reset()
+
+                    // Send any buffered messages and clear the buffer
+                    guard let pushBuffer = await self?.pushBuffer else { return }
+
+                    for element in pushBuffer {
+                        await element.send()
+                    }
+                    await self?.clearPushBuffer()
                 }
-            }
-        }
-
-        // Handle when the join push times out when sending after join()
-        self.joinPush.delegateReceive("timeout", to: self) { (self, _) in
-            Task {
-                // log that the channel timed out
-                await self.socket?.logItems("channel", "timeout \(self.topic) \(self.joinRef ?? "") after \(await self.timeout)s")
-
-                // Send a Push to the server to leave the channel
-                let leavePush = await Push(channel: self,
-                                           event: ChannelEvent.leave,
-                                           timeout: self.timeout)
-                await leavePush.send()
-
-                // Mark the Channel as in an error and attempt to rejoin if socket is connected
-                await self.update(state: .errored)
-                await self.joinPush.reset()
-
-                if await (self.socket?.isConnected == true) {
-                    await self.rejoinTimer.scheduleTimeout()
-                }
-            }
-        }
+            })
+            .store(in: &cancellables)
 
         /// Perfom when the Channel has been closed
         self.delegateOnClose(to: self) { (self, _) in
@@ -249,6 +238,41 @@ public actor Channel {
                                    payload: message.rawPayload,
                                    ref: message.ref,
                                    joinRef: message.joinRef)
+            }
+        }
+    }
+
+    func handleJoinPush(error: PushError) {
+        switch error {
+        case .pushFailed:
+            Task { [weak self] in
+                await self?.update(state: .errored)
+                if await (self?.socket?.isConnected == true) {
+                    await self?.rejoinTimer.scheduleTimeout()
+                }
+            }
+        case .timeout:
+            Task { [weak self] in
+                guard let channel = self else { return }
+
+                // log that the channel timed out
+                await self?.socket?
+                    .logItems("channel",
+                              "timeout \(channel.topic) \(channel.joinRef ?? "") after \(await channel.timeout)s")
+
+                // Send a Push to the server to leave the channel
+                let leavePush = await Push(channel: channel,
+                                           event: ChannelEvent.leave,
+                                           timeout: channel.timeout)
+                await leavePush.send()
+
+                // Mark the Channel as in an error and attempt to rejoin if socket is connected
+                await self?.update(state: .errored)
+                await self?.joinPush.reset()
+
+                if await (self?.socket?.isConnected == true) {
+                    await self?.rejoinTimer.scheduleTimeout()
+                }
             }
         }
     }
@@ -460,6 +484,45 @@ public actor Channel {
         }
     }
 
+    /// Creates a Push with a payload for the Channel
+    ///
+    /// Example:
+    ///
+    ///     channel.push("event", payload: ["message": "hello")
+    ///
+    /// - parameter event: Event to push
+    /// - parameter payload: Payload to push
+    /// - parameter timeout: Optional timeout
+    @discardableResult
+    public func createPush(_ event: String,
+                           payload: Payload,
+                           timeout: TimeInterval = Defaults.timeoutInterval) -> Push {
+        guard joinedOnce else { fatalError("Tried to push \(event) to \(self.topic) before joining. Use channel.join() before pushing events") }
+
+        return Push(channel: self,
+                    event: event,
+                    payload: payload,
+                    timeout: timeout)
+    }
+
+    /// Sends a Push over the Socket for the Channel
+    ///
+    /// Example:
+    ///
+    ///     channel.send(push)
+    ///
+    /// - parameter push: Push object to send over the Socket
+    public func send(push: Push) async {
+        guard joinedOnce else { fatalError("Tried to push \(push.event) to \(self.topic) before joining. Use channel.join() before pushing events") }
+
+        if canPush {
+            await push.send()
+        } else {
+            await push.startTimeout()
+            pushBuffer.append(push)
+        }
+    }
+
     /// Push a payload to the Channel
     ///
     /// Example:
@@ -518,12 +581,7 @@ public actor Channel {
         /// Delegated callback for a successful or a failed channel leave
         var onCloseDelegate = Delegated<Message, Void>()
         onCloseDelegate.delegate(to: self) { (self, message) in
-            Task {
-                await self.socket?.logItems("channel", "leave \(self.topic)")
 
-                // Triggers onClose() hooks
-                await self.trigger(event: ChannelEvent.close, payload: ["reason": "leave"])
-            }
         }
 
         // Push event to send to the server
@@ -534,8 +592,25 @@ public actor Channel {
         // Perform the same behavior if successfully left the channel
         // or if sending the event timed out
         leavePush
-            .receive("ok", delegated: onCloseDelegate)
-            .receive("timeout", delegated: onCloseDelegate)
+            .messagePublisher
+            .compactMap { $0 }
+            .sink(receiveCompletion: { [weak self] in
+                switch $0 {
+                case .failure(let error):
+                    switch error {
+                    case .timeout:
+                        Task { [weak self] in await self?.handleLeavePush() }
+                    case .pushFailed:
+                        Task { [weak self] in await self?.socket?.logItems("channel", "leave Push failed") }
+                    }
+                default:
+                    break
+                }
+            }, receiveValue: { [weak self] _ in
+                Task { [weak self] in await self?.handleLeavePush() }
+            })
+            .store(in: &cancellables)
+
         await leavePush.send()
 
         // If the Channel cannot send push events, trigger a success locally
@@ -543,6 +618,16 @@ public actor Channel {
 
         // Return the push so it can be bound to
         return leavePush
+    }
+
+    private func handleLeavePush() {
+        Task { [weak self] in
+            guard let channel = self else { return }
+            await channel.socket?.logItems("channel", "leave \(channel.topic)")
+
+            // Triggers onClose() hooks
+            await channel.trigger(event: ChannelEvent.close, payload: ["reason": "leave"])
+        }
     }
 
     /// Overridable message hook. Receives all events for specialized message
