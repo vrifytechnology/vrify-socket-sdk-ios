@@ -43,12 +43,6 @@ public class Push {
     /// The server's response to the Push
     var receivedMessage: Message?
 
-    /// Timer which triggers a timeout event
-    var timeoutTimer: TimerQueue
-
-    /// WorkItem to be performed when the timeout timer fires
-    var timeoutWorkItem: DispatchWorkItem?
-
     /// True if the Push has been sent
     var sent: Bool
 
@@ -66,18 +60,16 @@ public class Push {
     /// - parameter channel: The Channel
     /// - parameter event: The event, for example ChannelEvent.join
     /// - parameter payload: Optional. The Payload to send, e.g. ["user_id": "abc123"]
-    /// - parameter timeout: Optional. The push timeout. Default is 10.0s
+    /// - parameter timeout: The push timeout. A value of 0.0 will never generate a timeout Error.
     init(channel: Channel,
          event: String,
          payload: Payload = [:],
-         timeout: TimeInterval = Defaults.timeoutInterval) {
+         timeout: TimeInterval) {
         self.channel = channel
         self.event = event
         self.payload = payload
         self.timeout = timeout
         self.receivedMessage = nil
-        self.timeoutTimer = TimerQueue.main
-//        self.receiveHooks = [:]
         self.sent = false
         self.ref = nil
     }
@@ -85,8 +77,8 @@ public class Push {
 
 
     /// Resets and sends the Push
-    /// - parameter timeout: Optional. The push timeout. Default is 10.0s
-    public func resend(_ timeout: TimeInterval = Defaults.timeoutInterval) async {
+    /// - parameter timeout: The push timeout. A value of 0.0 will never generate a timeout Error.
+    public func resend(_ timeout: TimeInterval) async {
         self.timeout = timeout
         await self.reset()
         await self.send()
@@ -99,125 +91,26 @@ public class Push {
 
         await self.startTimeout()
         self.sent = true
-        Task {
-            await self.channel?.socket?
-                .push(topic: channel?.topic ?? "",
-                      event: self.event,
-                      payload: self.payload,
-                      ref: self.ref,
-                      joinRef: channel?.joinRef
-                )
-        }
-
+        await self.channel?.socket?
+            .push(topic: channel?.topic ?? "",
+                  event: self.event,
+                  payload: self.payload,
+                  ref: self.ref,
+                  joinRef: channel?.joinRef
+            )
     }
 
-    /// Receive a specific event when sending an Outbound message. Subscribing
-    /// to status events with this method does not guarantees no retain cycles.
-    /// You should pass `weak self` in the capture list of the callback. You
-    /// can call `.delegateReceive(status:, to:, callback:) and the library will
-    /// handle it for you.
-    ///
-    /// Example:
-    ///
-    ///     channel
-    ///         .send(event:"custom", payload: ["body": "example"])
-    ///         .receive("error") { [weak self] payload in
-    ///             print("Error: ", payload)
-    ///         }
-    ///
-    /// - parameter status: Status to receive
-    /// - parameter callback: Callback to fire when the status is recevied
-//    @discardableResult
-//    public func receive(_ status: String,
-//                        callback: @escaping ((Message) -> ())) -> Push {
-//        var delegated = Delegated<Message, Void>()
-//        delegated.manuallyDelegate(with: callback)
-//
-//        return self.receive(status, delegated: delegated)
-//    }
-
-    /// Receive a specific event when sending an Outbound message. Automatically
-    /// prevents retain cycles. See `manualReceive(status:, callback:)` if you
-    /// want to handle this yourself.
-    ///
-    /// Example:
-    ///
-    ///     channel
-    ///         .send(event:"custom", payload: ["body": "example"])
-    ///         .delegateReceive("error", to: self) { payload in
-    ///             print("Error: ", payload)
-    ///         }
-    ///
-    /// - parameter status: Status to receive
-    /// - parameter owner: The class that is calling .receive. Usually `self`
-    /// - parameter callback: Callback to fire when the status is recevied
-//    @discardableResult
-//    public func delegateReceive<Target: AnyObject>(_ status: String,
-//                                                   to owner: Target,
-//                                                   callback: @escaping ((Target, Message) -> ())) -> Push {
-//        var delegated = Delegated<Message, Void>()
-//        delegated.delegate(to: owner, with: callback)
-//
-//        return self.receive(status, delegated: delegated)
-//    }
-
-//    /// Shared behavior between `receive` calls
-//    @discardableResult
-//    internal func receive(_ status: String, delegated: Delegated<Message, Void>) -> Push {
-//        // If the message has already been received, pass it to the callback immediately
-//        if hasReceived(status: status), let receivedMessage = self.receivedMessage {
-//            delegated.call(receivedMessage)
-//        }
-//
-//        if receiveHooks[status] == nil {
-//            /// Create a new array of hooks if no previous hook is associated with status
-//            receiveHooks[status] = [delegated]
-//        } else {
-//            /// A previous hook for this status already exists. Just append the new hook
-//            receiveHooks[status]?.append(delegated)
-//        }
-//
-//        return self
-//    }
-
-    /// Resets the Push as it was after it was first tnitialized.
+    /// Resets the Push as it was after it was first initialized.
     internal func reset() async  {
-//        await self.cancelRefEvent()
         self.ref = nil
         self.refEvent = nil
         self.receivedMessage = nil
         self.sent = false
     }
 
-
-//    /// Finds the receiveHook which needs to be informed of a status response
-//    ///
-//    /// - parameter status: Status which was received, e.g. "ok", "error", "timeout"
-//    /// - parameter response: Response that was received
-//    private func matchReceive(_ status: String, message: Message) {
-//        receiveHooks[status]?.forEach( { $0.call(message) } )
-//    }
-
-    /// Reverses the result on channel.on(ChannelEvent, callback) that spawned the Push
-//    private func cancelRefEvent() async {
-//        guard let refEvent = self.refEvent else { return }
-//        await self.channel?.off(refEvent)
-//    }
-
-    /// Cancel any ongoing Timeout Timer
-    internal func cancelTimeout() {
-        self.timeoutWorkItem?.cancel()
-        self.timeoutWorkItem = nil
-    }
-
     /// Starts the Timer which will trigger a timeout after a specific _timeout_
     /// time, in milliseconds, is reached.
     internal func startTimeout() async {
-        // Cancel any existing timeout before starting a new one
-        if let safeWorkItem = timeoutWorkItem, !safeWorkItem.isCancelled {
-            self.cancelTimeout()
-        }
-
         guard
             let channel = channel,
             let socket = await channel.socket else { return }
@@ -228,37 +121,57 @@ public class Push {
         self.ref = ref
         self.refEvent = refEvent
 
+        timeout == 0 ? setupMessageCancellable(channel, ref) : setupTimeoutableMessageCancellable(channel, ref)
+    }
+
+    func setupMessageCancellable(_ channel: Channel, _ ref: String) {
         /// If a response is received  before the Timer triggers, cancel timer
         /// and match the recevied event to it's corresponding
-        await channel.messagePublisher
-            .filter { $0.event == refEvent }
-//            .timeout(.seconds(10),
-//                     scheduler: DispatchQueue.global(),
-//                     customError: {PushError.timeout(event: event,payload: payload) } )
-            .sink { [weak self] message in
-                Task { [weak self] in
-                    // await self?.cancelRefEvent()
-                    self?.cancelTimeout()
-                    self?.receivedMessage = message
+        channel.messagePublisher
+            .filter { $0.event == ChannelEvent.reply && $0.ref == ref }
+            .timeout(.seconds(1),
+                     scheduler: DispatchQueue.global(),
+                     customError: { [self] in .timeout(event: event, payload: payload) } )
+            .sink(receiveCompletion: { _ in
+                // Ignore completions and allow the publisher to finish regardless of timeout
+            }, receiveValue: { [weak self] message in
+                self?.receivedMessage = message
 
-                    /// Check if there is event a status available
-                    guard message.status != nil else { return }
-                    self?.messagePublisher.send(message)
-                }
-            }
+                /// Check if there is event a status available
+                guard message.status != nil else { return }
+                self?.messagePublisher.send(message)
+            })
             .store(in: &cancellables)
+    }
 
-        /// Setup and start the Timeout timer.
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let push  = self else { return }
-            push.messagePublisher.send(completion: .failure(.timeout(event: push.event, payload: push.payload)))
-//            Task {
-//                await self.trigger("timeout", payload: [:])
-//            }
-        }
+    func setupTimeoutableMessageCancellable(_ channel: Channel, _ ref: String) {
+        /// If a response is received  before the Timer triggers, cancel timer
+        /// and match the recevied event to it's corresponding
+        channel.messagePublisher
+            .filter { $0.event == ChannelEvent.reply && $0.ref == ref }
+            .timeout(.seconds(timeout),
+                     scheduler: DispatchQueue.global(),
+                     customError: { [self] in .timeout(event: event, payload: payload) } )
+            .sink(receiveCompletion: { [weak self] in
+                if case .failure = $0,
+                   self?.receivedMessage == nil {
+                    Task { [weak self] in
+                        await self?.channel?.socket?
+                            .logItems("push",
+"""
+ Push timed out waiting for a response. Note that Phoenix does not require Channel responses.
+ Implementations of of `handle_in` with {:noreply, socket} should not consider this an error.
+""")
+                    }
+                }
+            }, receiveValue: { [weak self] message in
+                self?.receivedMessage = message
 
-        self.timeoutWorkItem = workItem
-        self.timeoutTimer.queue(timeInterval: timeout, execute: workItem)
+                /// Check if there is event a status available
+                guard message.status != nil else { return }
+                self?.messagePublisher.send(message)
+            })
+            .store(in: &cancellables)
     }
 
     /// Checks if a status has already been received by the Push.

@@ -718,7 +718,7 @@ public class Socket: PhoenixTransportDelegate {
             let isInJoiningState = await channel.isJoining
             if channel.topic == topic && (isInJoiningState || isInJoinedState) {
                 self.logItems("transport", "leaving duplicate topic: [\(topic)]" )
-                await channel.leave()
+                await channel.leave(timeout: Defaults.timeoutInterval)
             }
         }
     }

@@ -97,7 +97,6 @@ class BasicChatViewController: UIViewController {
         }
 
         socket.logger = { msg in print("LOG:", msg) }
-
     }
 
 

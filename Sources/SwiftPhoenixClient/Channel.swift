@@ -61,8 +61,8 @@ public actor Channel {
     /// Current state of the Channel
     var state: ChannelState
 
-    /// Publishes bindings
-    public var messagePublisher = PassthroughSubject<Message, Never>()
+    /// Publishes messages recieved by the channel
+    public nonisolated let messagePublisher = PassthroughSubject<Message, PushError>()
 
     /// Timout when attempting to join a Channel
     var timeout: TimeInterval
@@ -173,7 +173,13 @@ public actor Channel {
         /// Perfom when the Channel has been closed
         messagePublisher
             .filter { $0.event == ChannelEvent.close }
-            .sink { [weak self] message in
+            .sink(receiveCompletion: { [weak self] in
+                if case let .failure(error) = $0 {
+                    Task { [weak self] in
+                        await self?.socket?.logItems("presence", "Push failed due to error: \(error)")
+                    }
+                }
+            }, receiveValue: { [weak self] message in
                 Task { [weak self] in
                     // Reset any timer that may be on-going
                     await self?.rejoinTimer.reset()
@@ -187,13 +193,19 @@ public actor Channel {
                     guard let channel = self else { return }
                     await self?.socket?.remove(channel)
                 }
-            }
+            })
             .store(in: &cancellables)
 
         /// Perfom when the Channel errors
         messagePublisher
             .filter { $0.event == ChannelEvent.error }
-            .sink { [weak self] message in
+            .sink(receiveCompletion: { [weak self] in
+                if case let .failure(error) = $0 {
+                    Task { [weak self] in
+                        await self?.socket?.logItems("presence", "Push failed due to error: \(error)")
+                    }
+                }
+            }, receiveValue: { [weak self] message in
                 Task { [weak self] in
                     // Log that the channel received an error
                     await self?.socket?.logItems("channel",
@@ -217,13 +229,19 @@ public actor Channel {
                         await self?.rejoinTimer.scheduleTimeout()
                     }
                 }
-            }
+            })
             .store(in: &cancellables)
 
         // Perform when the join reply is received
         messagePublisher
             .filter { $0.event == ChannelEvent.reply }
-            .sink { [weak self] message in
+            .sink(receiveCompletion: { [weak self] in
+                if case let .failure(error) = $0 {
+                    Task { [weak self] in
+                        await self?.socket?.logItems("presence", "Push failed due to error: \(error)")
+                    }
+                }
+            }, receiveValue: { [weak self] message in
                 Task { [weak self] in
                     guard let event = await self?.replyEventName(message.ref) else { return }
                     await self?.trigger(event: event,
@@ -231,7 +249,7 @@ public actor Channel {
                                         ref: message.ref,
                                         joinRef: message.joinRef)
                 }
-            }
+            })
             .store(in: &cancellables)
 
     }
@@ -280,9 +298,9 @@ public actor Channel {
     ///
     /// - parameter msg: The Message received by the client from the server
     /// - return: Must return the message, modified or unmodified
-    public var onMessage: (_ message: Message) -> Message = { (message) in
-        return message
-    }
+//    public var onMessage: (_ message: Message) -> Message = { (message) in
+//        return message
+//    }
 
     /// Joins the channel
     ///
@@ -490,7 +508,7 @@ public actor Channel {
     @discardableResult
     public func createPush(_ event: String,
                            payload: Payload,
-                           timeout: TimeInterval = Defaults.timeoutInterval) -> Push {
+                           timeout: TimeInterval) -> Push {
         guard joinedOnce else { fatalError("Tried to push \(event) to \(self.topic) before joining. Use channel.join() before pushing events") }
 
         return Push(channel: self,
@@ -527,11 +545,11 @@ public actor Channel {
     ///
     /// - parameter event: Event to push
     /// - parameter payload: Payload to push
-    /// - parameter timeout: Optional timeout
+    /// - parameter timeout: Timeout. A value of 0.0 will never generate a timeout Error.
     @discardableResult
     public func push(_ event: String,
                      payload: Payload,
-                     timeout: TimeInterval = Defaults.timeoutInterval) async -> Push {
+                     timeout: TimeInterval) async -> Push {
         guard joinedOnce else { fatalError("Tried to push \(event) to \(self.topic) before joining. Use channel.join() before pushing events") }
 
         let pushEvent = Push(channel: self,
@@ -565,7 +583,7 @@ public actor Channel {
     /// - parameter timeout: Optional timeout
     /// - return: Push that can add receive hooks
     @discardableResult
-    public func leave(timeout: TimeInterval = Defaults.timeoutInterval) async -> Push {
+    public func leave(timeout: TimeInterval) async -> Push {
         // If attempting a rejoin during a leave, then reset, cancelling the rejoin
         self.rejoinTimer.reset()
 
@@ -624,17 +642,6 @@ public actor Channel {
         }
     }
 
-    /// Overridable message hook. Receives all events for specialized message
-    /// handling before dispatching to the channel callbacks.
-    ///
-    /// - parameter event: The event the message was for
-    /// - parameter payload: The payload for the message
-    /// - parameter ref: The reference of the message
-    /// - return: Must return the payload, modified or unmodified
-    public func onMessage(callback: @escaping (Message) -> Message) {
-        self.onMessage = callback
-    }
-
 
     //----------------------------------------------------------------------
     // MARK: - Internal
@@ -677,8 +684,6 @@ public actor Channel {
     ///
     /// - parameter message: Message to pass to the event bindings
     func trigger(_ message: Message) {
-        let handledMessage = self.onMessage(message)
-
         self.messagePublisher.send(message)
     }
 

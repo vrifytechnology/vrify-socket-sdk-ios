@@ -233,9 +233,15 @@ public final class Presence {
             let stateEvent = opts.events[.state],
             let diffEvent = opts.events[.diff] else { return }
 
-        await self.channel?.messagePublisher
+        self.channel?.messagePublisher
             .filter { $0.event == stateEvent }
-            .sink { [weak self] message in
+            .sink(receiveCompletion: { [weak self] in
+                if case let .failure(error) = $0 {
+                    Task { [weak self] in
+                        await self?.channel?.socket?.logItems("presence", "Push failed due to error: \(error)")
+                    }
+                }
+            }, receiveValue: { [weak self] message in
                 Task { [weak self] in
                     guard let presence = self,
                           let newState = message.rawPayload as? State else { return }
@@ -256,12 +262,18 @@ public final class Presence {
                     presence.pendingDiffs = []
                     presence.caller.onSync()
                 }
-            }
+            })
             .store(in: &cancellables)
 
-        await self.channel?.messagePublisher
+        self.channel?.messagePublisher
             .filter { $0.event == diffEvent }
-            .sink { [weak self] message in
+            .sink(receiveCompletion: { [weak self] in
+                if case let .failure(error) = $0 {
+                    Task { [weak self] in
+                        await self?.channel?.socket?.logItems("presence", "Push failed due to error: \(error)")
+                    }
+                }
+            }, receiveValue: { [weak self] message in
                 Task { [weak self] in
                     guard let presence = self,
                           let diff = message.rawPayload as? Diff else { return }
@@ -275,7 +287,7 @@ public final class Presence {
                         presence.caller.onSync()
                     }
                 }
-            }
+            })
             .store(in: &cancellables)
     }
 
