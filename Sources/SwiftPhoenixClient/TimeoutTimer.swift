@@ -52,7 +52,7 @@ class TimeoutTimer {
     var timerCalculation: ((Int) async -> TimeInterval)?
 
     /// The work to be done when the queue fires
-    var workItem: DispatchWorkItem? = nil
+    var workItem: DispatchWorkItem?
 
     /// The number of times the underlyingTimer hass been set off.
     var tries: Int = 0
@@ -60,14 +60,12 @@ class TimeoutTimer {
     /// The Queue to execute on. In testing, this is overridden
     var queue: TimerQueue = TimerQueue.main
 
-
     /// Resets the Timer, clearing the number of tries and stops
     /// any scheduled timeout.
     func reset() {
         self.tries = 0
         self.clearTimer()
     }
-
 
     /// Schedules a timeout callback to fire after a calculated timeout duration.
     func scheduleTimeout() async {
@@ -94,7 +92,6 @@ class TimeoutTimer {
     }
 }
 
-
 /// Wrapper class around a DispatchQueue. Allows for providing a fake clock
 /// during tests.
 class TimerQueue {
@@ -111,4 +108,3 @@ class TimerQueue {
         DispatchQueue.main.asyncAfter(deadline: dispatchTime, execute: execute)
     }
 }
-

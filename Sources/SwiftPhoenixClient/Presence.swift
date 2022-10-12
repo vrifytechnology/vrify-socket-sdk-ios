@@ -18,7 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-
 import Foundation
 import Combine
 
@@ -94,10 +93,9 @@ import Combine
 ///     presence.onSync { renderUsers(presence.list()) }
 public final class Presence {
 
-
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // MARK: - Enums and Structs
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     /// Custom options that can be provided when creating Presence
     ///
     /// ### Example:
@@ -120,13 +118,13 @@ public final class Presence {
 
     /// Presense Events
     public enum Events: String {
-        case state = "state"
-        case diff = "diff"
+        case state
+        case diff
     }
 
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // MARK: - Typaliases
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     /// Meta details of a Presence. Just a dictionary of properties
     public typealias Meta = [String: Any]
 
@@ -151,15 +149,14 @@ public final class Presence {
 
     /// Collection of callbacks with default values
     struct Caller {
-        var onJoin: OnJoin = {_,_,_ in }
-        var onLeave: OnLeave = {_,_,_ in }
+        var onJoin: OnJoin = {_, _, _ in }
+        var onLeave: OnLeave = {_, _, _ in }
         var onSync: OnSync = {}
     }
 
-
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // MARK: - Properties
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     /// The channel the Presence belongs to
     weak var channel: Channel?
 
@@ -214,7 +211,6 @@ public final class Presence {
     public func onSync(_ callback: @escaping OnSync) {
         self.onSync = callback
     }
-
 
     public init(channel: Channel, opts: Options = Options.defaults) {
         self.state = [:]
@@ -306,10 +302,12 @@ public final class Presence {
         return Presence.filter(self.state, by: filter)
     }
 
-
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // MARK: - Static
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
+
+    // ToDo: Refactor this code to not rely on force casting.
+    // swiftlint:disable force_cast
 
     // Used to sync the list of presences on the server
     // with the client's state. An optional `onJoin` and `onLeave` callback can
@@ -320,8 +318,8 @@ public final class Presence {
     @discardableResult
     public static func syncState(_ currentState: State,
                                  newState: State,
-                                 onJoin: OnJoin = {_,_,_ in },
-                                 onLeave: OnLeave = {_,_,_ in }) -> State {
+                                 onJoin: OnJoin = {_, _, _ in },
+                                 onLeave: OnLeave = {_, _, _ in }) -> State {
         let state = currentState
         var leaves: Presence.State = [:]
         var joins: Presence.State = [:]
@@ -344,7 +342,6 @@ public final class Presence {
                     !newRefs.contains { $0 == meta["phx_ref"] as! String }
                 })
 
-
                 if joinedMetas.count > 0 {
                     joins[key] = newPresence
                     joins[key]!["metas"] = joinedMetas
@@ -365,7 +362,6 @@ public final class Presence {
                                  onLeave: onLeave)
     }
 
-
     // Used to sync a diff of presence join and leave
     // events from the server, as they happen. Like `syncState`, `syncDiff`
     // accepts optional `onJoin` and `onLeave` callbacks to react to a user
@@ -375,8 +371,8 @@ public final class Presence {
     @discardableResult
     public static func syncDiff(_ currentState: State,
                                 diff: Diff,
-                                onJoin: OnJoin = {_,_,_ in },
-                                onLeave: OnLeave = {_,_,_ in }) -> State {
+                                onJoin: OnJoin = {_, _, _ in },
+                                onLeave: OnLeave = {_, _, _ in }) -> State {
         var state = currentState
         diff["joins"]?.forEach { (key, newPresence) in
             let currentPresence = state[key]
@@ -412,10 +408,11 @@ public final class Presence {
 
         return state
     }
+    // swiftlint:enable force_cast
 
     public static func filter(_ presences: State,
                               by filter: ((String, Map) -> Bool)?) -> State {
-        let safeFilter = filter ?? { key, pres in true }
+        let safeFilter = filter ?? { _, _ in true }
         return presences.filter(safeFilter)
     }
 
@@ -423,4 +420,5 @@ public final class Presence {
                                  transformer: (String, Map) -> T) -> [T] {
         return presences.map(transformer)
     }
+    // swiftlint:disable:next file_length
 }

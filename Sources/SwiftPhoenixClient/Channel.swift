@@ -178,7 +178,7 @@ public actor Channel {
                         await self?.socket?.logItems("presence", "Push failed due to error: \(error)")
                     }
                 }
-            }, receiveValue: { [weak self] message in
+            }, receiveValue: { [weak self] _ in
                 Task { [weak self] in
                     // Reset any timer that may be on-going
                     await self?.rejoinTimer.reset()
@@ -420,10 +420,9 @@ public actor Channel {
         }
     }
 
-
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // MARK: - Internal
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     /// Checks if an event received by the Socket belongs to this Channel
     func isMember(_ message: Message) -> Bool {
         // Return false if the message's topic does not match the Channel's topic
@@ -502,10 +501,9 @@ public actor Channel {
     }
 }
 
-
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 // MARK: - Public API
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 extension Channel {
 
     /// - return: True if the Channel has been closed
@@ -536,7 +534,7 @@ extension Channel {
 }
 
 private extension Channel {
-    private func update(state:  ChannelState) async {
+    private func update(state: ChannelState) async {
         self.state = state
     }
 
@@ -544,4 +542,3 @@ private extension Channel {
         self.pushBuffer = []
     }
 }
-

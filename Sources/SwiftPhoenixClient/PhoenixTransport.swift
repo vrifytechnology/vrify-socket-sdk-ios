@@ -20,10 +20,9 @@
 
 import Foundation
 
-
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 // MARK: - Transport Protocol
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 /**
  Defines a `Socket`'s Transport layer.
  */
@@ -58,10 +57,9 @@ public protocol PhoenixTransport {
     func send(data: Data)
 }
 
-
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 // MARK: - Transport Delegate Protocol
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 /**
  Delegate to receive notifications of events that occur in the `Transport` layer
  */
@@ -94,9 +92,9 @@ public protocol PhoenixTransportDelegate {
     func onClose(code: Int) async
 }
 
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 // MARK: - Transport Ready State Enum
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 /**
  Available `ReadyState`s of a `Transport` layer.
  */
@@ -116,9 +114,9 @@ public enum PhoenixTransportReadyState {
 
 }
 
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 // MARK: - Default Websocket Transport Implementation
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 /**
  A `Transport` implementation that relies on URLSession's native WebSocket
  implementation.
@@ -131,19 +129,17 @@ public enum PhoenixTransportReadyState {
 @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
 public class URLSessionTransport: NSObject, PhoenixTransport, URLSessionWebSocketDelegate {
 
-
     /// The URL to connect to
     internal let url: URL
 
     /// The URLSession configuratio
     internal let configuration: URLSessionConfiguration
-    
+
     /// The underling URLsession. Assigned during `connect()`
-    private var session: URLSession? = nil
+    private var session: URLSession?
 
     /// The ongoing task. Assigned during `connect()`
-    private var task: URLSessionWebSocketTask? = nil
-
+    private var task: URLSessionWebSocketTask?
 
     /**
      Initializes a `Transport` layer built using URLSession's WebSocket
@@ -182,11 +178,9 @@ public class URLSessionTransport: NSObject, PhoenixTransport, URLSessionWebSocke
         super.init()
     }
 
-
-
     // MARK: - Transport
     public var readyState: PhoenixTransportReadyState = .closed
-    public var delegate: PhoenixTransportDelegate? = nil
+    public var delegate: PhoenixTransportDelegate?
 
     public func connect() {
         // Set the trasport state as connecting
@@ -216,11 +210,10 @@ public class URLSessionTransport: NSObject, PhoenixTransport, URLSessionWebSocke
     }
 
     public func send(data: Data) {
-        self.task?.send(.string(String(data: data, encoding: .utf8)!)) { (error) in
+        self.task?.send(.string(String(data: data, encoding: .utf8)!)) { (_) in
             // TODO: What is the behavior when an error occurs?
         }
     }
-
 
     // MARK: - URLSessionWebSocketDelegate
     public func urlSession(_ session: URLSession,
@@ -257,7 +250,6 @@ public class URLSessionTransport: NSObject, PhoenixTransport, URLSessionWebSocke
             await self.abnormalErrorReceived(err)
         }
     }
-
 
     // MARK: - Private
     private func receive() async {
@@ -297,6 +289,3 @@ public class URLSessionTransport: NSObject, PhoenixTransport, URLSessionWebSocke
         await self.delegate?.onClose(code: Socket.CloseCode.abnormal.rawValue)
     }
 }
-
-
-

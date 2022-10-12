@@ -13,19 +13,6 @@ import AppKit
 
 @testable import SwiftPhoenixClient
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 class PhoenixTransportMock: PhoenixTransport {
     var readyState: PhoenixTransportReadyState {
         get { return underlyingReadyState }
@@ -34,7 +21,7 @@ class PhoenixTransportMock: PhoenixTransport {
     var underlyingReadyState: PhoenixTransportReadyState!
     var delegate: PhoenixTransportDelegate?
 
-    //MARK: - connect
+    // MARK: - connect
 
     var connectCallsCount = 0
     var connectCalled: Bool {
@@ -47,7 +34,7 @@ class PhoenixTransportMock: PhoenixTransport {
         connectClosure?()
     }
 
-    //MARK: - disconnect
+    // MARK: - disconnect
 
     var disconnectCodeReasonCallsCount = 0
     var disconnectCodeReasonCalled: Bool {
@@ -64,7 +51,7 @@ class PhoenixTransportMock: PhoenixTransport {
         disconnectCodeReasonClosure?(code, reason)
     }
 
-    //MARK: - send
+    // MARK: - send
 
     var sendDataCallsCount = 0
     var sendDataCalled: Bool {

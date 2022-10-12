@@ -49,7 +49,6 @@ class BasicChatViewController: UIViewController {
     @IBOutlet weak var messageField: UITextField!
     @IBOutlet weak var chatWindow: UITextView!
 
-
     // Notifcation Subscriptions
     private var didbecomeActiveObservervation: NSObjectProtocol?
     private var willResignActiveObservervation: NSObjectProtocol?
@@ -58,14 +57,12 @@ class BasicChatViewController: UIViewController {
     let username: String = "Basic"
     var topic: String = "rooms:lobby"
 
-
-
     // Test the URLSessionTransport
     let socket = Socket(endpoint)
 
     // Test the StarscreamTransport
     //  let socket = Socket(endPoint: endpoint, transport: { url in return StarscreamTransport(url: url) })
-    
+
     var lobbyChannel: Channel!
 
     // MARK: - Lifecycle
@@ -99,7 +96,6 @@ class BasicChatViewController: UIViewController {
         socket.logger = { msg in print("LOG:", msg) }
     }
 
-
     // MARK: - IBActions
     @IBAction func onConnectButtonPressed(_ sender: Any) {
         Task {
@@ -131,8 +127,6 @@ class BasicChatViewController: UIViewController {
 
     }
 
-
-
     @IBAction func sendMessage(_ sender: UIButton) {
         let payload = ["user": username, "body": messageField.text!]
 
@@ -150,11 +144,9 @@ class BasicChatViewController: UIViewController {
         messageField.text = ""
     }
 
-
-
     // MARK: - Private
     private func observeDidBecomeActive() {
-        //Make sure there's no other observations
+        // Make sure there's no other observations
         self.removeAppActiveObservation()
 
 //        self.didbecomeActiveObservervation = NotificationCenter.default
@@ -186,12 +178,6 @@ class BasicChatViewController: UIViewController {
         }
     }
 
-
-
-
-
-
-
     private func disconnectAndLeave() async {
         //     Be sure the leave the channel or call socket.remove(lobbyChannel)
         await lobbyChannel.leave()
@@ -201,7 +187,7 @@ class BasicChatViewController: UIViewController {
     }
 
     private func connectAndJoin() async {
-        let channel = await socket.channel(topic, params: ["status":"joining"])
+        let channel = await socket.channel(topic, params: ["status": "joining"])
         await channel.delegateOn("join", to: self) { (self, _) in
             self.addText("You joined the room.")
         }
@@ -215,7 +201,7 @@ class BasicChatViewController: UIViewController {
             self.addText(newMessage)
         }
 
-        await channel.delegateOn("user:entered", to: self) { (self, message) in
+        await channel.delegateOn("user:entered", to: self) { (self, _) in
             self.addText("[anonymous entered]")
         }
 
@@ -236,7 +222,7 @@ class BasicChatViewController: UIViewController {
             let updatedText = self.chatWindow.text.appending(text).appending("\n")
             self.chatWindow.text = updatedText
 
-            let bottom = NSMakeRange(updatedText.count - 1, 1)
+            let bottom = NSRange(location: updatedText.count - 1, length: 1)
             self.chatWindow.scrollRangeToVisible(bottom)
         }
     }

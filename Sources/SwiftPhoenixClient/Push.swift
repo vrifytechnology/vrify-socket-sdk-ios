@@ -18,7 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-
 import Foundation
 import Combine
 
@@ -66,8 +65,6 @@ public class Push {
         self.ref = nil
     }
 
-
-
     /// Resets and sends the Push
     /// - parameter timeout: The push timeout. A value of 0.0 will never generate a timeout Error.
     public func resend(_ timeout: TimeInterval) async {
@@ -94,7 +91,7 @@ public class Push {
 
 extension Push {
     /// Resets the Push as it was after it was first initialized.
-    func reset() async  {
+    func reset() async {
         self.ref = nil
         self.refEvent = nil
     }
@@ -138,7 +135,7 @@ extension Push {
             .filter { $0.event == ChannelEvent.reply && $0.ref == ref }
             .timeout(.seconds(timeout),
                      scheduler: DispatchQueue.global(),
-                     customError: { [self] in .timeout(event: event, payload: payload) } )
+                     customError: { [self] in .timeout(event: event, payload: payload) })
             .sink(receiveCompletion: { [weak self] in
                 if case .failure(let error) = $0,
                    self?.pushResponse.value == nil {

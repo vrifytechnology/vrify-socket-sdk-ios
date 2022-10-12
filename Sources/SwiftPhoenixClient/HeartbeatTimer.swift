@@ -20,8 +20,6 @@
 
 import Foundation
 
-
-
 /**
  Heartbeat Timer class which manages the lifecycle of the underlying
  timer which triggers when a hearbeat should be fired. This heartbeat
@@ -30,27 +28,27 @@ import Foundation
  */
 
 class HeartbeatTimer {
-  
-  //----------------------------------------------------------------------
+
+  // ----------------------------------------------------------------------
   // MARK: - Dependencies
-  //----------------------------------------------------------------------
+  // ----------------------------------------------------------------------
   // The interval to wait before firing the Timer
   let timeInterval: TimeInterval
-  
+
   // The DispatchQueue to schedule the timers on
   let queue: DispatchQueue
-  
+
   // UUID which specifies the Timer instance. Verifies that timers are different
   let uuid: String = UUID().uuidString
-  
-  //----------------------------------------------------------------------
+
+  // ----------------------------------------------------------------------
   // MARK: - Properties
-  //----------------------------------------------------------------------
+  // ----------------------------------------------------------------------
   // The underlying, cancelable, resettable, timer.
-  private var temporaryTimer: DispatchSourceTimer? = nil
+  private var temporaryTimer: DispatchSourceTimer?
   // The event handler that is called by the timer when it fires.
-  private var temporaryEventHandler: (() -> Void)? = nil
-  
+  private var temporaryEventHandler: (() -> Void)?
+
   /**
    Create a new HeartbeatTimer
    
@@ -61,7 +59,7 @@ class HeartbeatTimer {
     self.timeInterval = timeInterval
     self.queue = queue
   }
-  
+
   /**
    Create a new HeartbeatTimer
    
@@ -70,25 +68,25 @@ class HeartbeatTimer {
   convenience init(timeInterval: TimeInterval) {
     self.init(timeInterval: timeInterval, queue: Defaults.heartbeatQueue)
   }
-  
+
   func start(eventHandler: @escaping () -> Void) {
     queue.sync {
       // Create a new DispatchSourceTimer, passing the event handler
       let timer = DispatchSource.makeTimerSource(flags: [], queue: queue)
       timer.setEventHandler(handler: eventHandler)
-      
+
       // Schedule the timer to first fire in `timeInterval` and then
       // repeat every `timeInterval`
       timer.schedule(deadline: DispatchTime.now() + self.timeInterval,
                      repeating: self.timeInterval)
-      
+
       // Start the timer
       timer.resume()
       self.temporaryEventHandler = eventHandler
       self.temporaryTimer = timer
     }
   }
-  
+
   func stop() {
     // Must be queued synchronously to prevent threading issues.
     queue.sync {
@@ -97,7 +95,7 @@ class HeartbeatTimer {
       temporaryEventHandler = nil
     }
   }
-  
+
   /**
    True if the Timer exists and has not been cancelled. False otherwise
    */
@@ -105,7 +103,7 @@ class HeartbeatTimer {
     guard let timer = self.temporaryTimer else { return false }
     return !timer.isCancelled
   }
-  
+
   /**
    Calls the Timer's event handler immediately. This method
    is primarily used in tests (not ideal)

@@ -22,30 +22,30 @@ import Foundation
 
 /// Data that is received from the Server.
 public class Message {
-  
+
   /// Reference number. Empty if missing
   public let ref: String
-  
+
   /// Join Reference number
   internal let joinRef: String?
-  
+
   /// Message topic
   public let topic: String
-  
+
   /// Message event
   public let event: String
-  
+
   /// The raw payload from the Message, including a nested response from
   /// phx_reply events. It is recommended to use `payload` instead.
   internal let rawPayload: Payload
-  
+
   /// Message payload
   public var payload: Payload {
     guard let response = rawPayload["response"] as? Payload
     else { return rawPayload }
     return response
   }
-  
+
   /// Convenience accessor. Equivalent to getting the status as such:
   /// ```swift
   /// message.payload["status"]
@@ -69,12 +69,12 @@ public class Message {
   init?(json: [Any?]) {
     self.joinRef = json[0] as? String
     self.ref = json[1] as? String ?? ""
-    
-    if 
+
+    if
       let topic = json[2] as? String,
       let event = json[3] as? String,
       let payload = json[4] as? Payload {
-        
+
       self.topic = topic
       self.event = event
       self.rawPayload = payload

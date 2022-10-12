@@ -6,31 +6,7 @@
 
 @testable import SwiftPhoenixClient
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// swiftlint:disable:next type_body_length
 class ChannelMock: Channel {
     var socketSetCount: Int = 0
     var socketDidGetSet: Bool { return socketSetCount > 0 }
@@ -73,14 +49,12 @@ class ChannelMock: Channel {
     }
     var underlyingOnMessage: ((_ message: Message) -> Message)!
 
-
-    //MARK: - init
-
+    // MARK: - init
+    // swiftlint:disable:next large_tuple
     var initTopicParamsSocketReceivedArguments: (topic: String, params: [String: Any], socket: Socket)?
     var initTopicParamsSocketClosure: ((String, [String: Any], Socket) -> Void)?
 
-
-    //MARK: - deinit
+    // MARK: - deinit
 
     var deinitCallsCount = 0
     var deinitCalled: Bool {
@@ -88,8 +62,7 @@ class ChannelMock: Channel {
     }
     var deinitClosure: (() -> Void)?
 
-
-    //MARK: - join
+    // MARK: - join
 
     var joinTimeoutCallsCount = 0
     var joinTimeoutCalled: Bool {
@@ -105,8 +78,7 @@ class ChannelMock: Channel {
         return joinTimeoutClosure.map({ $0(timeout) }) ?? joinTimeoutReturnValue
     }
 
-
-    //MARK: - onClose
+    // MARK: - onClose
 
     var onCloseCallsCount = 0
     var onCloseCalled: Bool {
@@ -122,8 +94,7 @@ class ChannelMock: Channel {
         return onCloseClosure.map({ $0(callback) }) ?? onCloseReturnValue
     }
 
-
-    //MARK: - delegateOnClose<Target: AnyObject>
+    // MARK: - delegateOnClose<Target: AnyObject>
 
     var delegateOnCloseToCallbackCallsCount = 0
     var delegateOnCloseToCallbackCalled: Bool {
@@ -132,13 +103,12 @@ class ChannelMock: Channel {
     var delegateOnCloseToCallbackReturnValue: Int!
 
     override func delegateOnClose<Target: AnyObject>(to owner: Target,
-                                                 callback: @escaping ((Target, Message) -> Void)) -> Int {
+                                                     callback: @escaping ((Target, Message) -> Void)) -> Int {
         delegateOnCloseToCallbackCallsCount += 1
         return delegateOnCloseToCallbackReturnValue
     }
 
-
-    //MARK: - onError
+    // MARK: - onError
 
     var onErrorCallsCount = 0
     var onErrorCalled: Bool {
@@ -154,8 +124,7 @@ class ChannelMock: Channel {
         return onErrorClosure.map({ $0(callback) }) ?? onErrorReturnValue
     }
 
-
-    //MARK: - delegateOnError<Target: AnyObject>
+    // MARK: - delegateOnError<Target: AnyObject>
 
     var delegateOnErrorToCallbackCallsCount = 0
     var delegateOnErrorToCallbackCalled: Bool {
@@ -164,13 +133,12 @@ class ChannelMock: Channel {
     var delegateOnErrorToCallbackReturnValue: Int!
 
     override func delegateOnError<Target: AnyObject>(to owner: Target,
-                                                 callback: @escaping ((Target, Message) -> Void)) -> Int {
+                                                     callback: @escaping ((Target, Message) -> Void)) -> Int {
         delegateOnErrorToCallbackCallsCount += 1
         return delegateOnErrorToCallbackReturnValue
     }
 
-
-    //MARK: - on
+    // MARK: - on
 
     var onCallbackCallsCount = 0
     var onCallbackCalled: Bool {
@@ -182,12 +150,11 @@ class ChannelMock: Channel {
 
     override func on(_ event: String, callback: @escaping ((Message) -> Void)) -> Int {
         onCallbackCallsCount += 1
-    onCallbackReceivedArguments = (event: event, callback: callback)
+        onCallbackReceivedArguments = (event: event, callback: callback)
         return onCallbackClosure.map({ $0(event, callback) }) ?? onCallbackReturnValue
     }
 
-
-    //MARK: - delegateOn<Target: AnyObject>
+    // MARK: - delegateOn<Target: AnyObject>
 
     var delegateOnToCallbackCallsCount = 0
     var delegateOnToCallbackCalled: Bool {
@@ -196,14 +163,13 @@ class ChannelMock: Channel {
     var delegateOnToCallbackReturnValue: Int!
 
     override func delegateOn<Target: AnyObject>(_ event: String,
-                                            to owner: Target,
-                                            callback: @escaping ((Target, Message) -> Void)) -> Int {
+                                                to owner: Target,
+                                                callback: @escaping ((Target, Message) -> Void)) -> Int {
         delegateOnToCallbackCallsCount += 1
         return delegateOnToCallbackReturnValue
     }
 
-
-    //MARK: - off
+    // MARK: - off
 
     var offRefCallsCount = 0
     var offRefCalled: Bool {
@@ -214,31 +180,30 @@ class ChannelMock: Channel {
 
     override func off(_ event: String, ref: Int? = nil) {
         offRefCallsCount += 1
-    offRefReceivedArguments = (event: event, ref: ref)
+        offRefReceivedArguments = (event: event, ref: ref)
         offRefClosure?(event, ref)
     }
 
-
-    //MARK: - push
+    // MARK: - push
 
     var pushPayloadTimeoutCallsCount = 0
     var pushPayloadTimeoutCalled: Bool {
         return pushPayloadTimeoutCallsCount > 0
     }
+    // swiftlint:disable:next large_tuple
     var pushPayloadTimeoutReceivedArguments: (event: String, payload: Payload, timeout: TimeInterval)?
     var pushPayloadTimeoutReturnValue: Push!
     var pushPayloadTimeoutClosure: ((String, Payload, TimeInterval) -> Push)?
 
     override func push(_ event: String,
-                   payload: Payload,
-                   timeout: TimeInterval = Defaults.timeoutInterval) -> Push {
+                       payload: Payload,
+                       timeout: TimeInterval = Defaults.timeoutInterval) -> Push {
         pushPayloadTimeoutCallsCount += 1
-    pushPayloadTimeoutReceivedArguments = (event: event, payload: payload, timeout: timeout)
+        pushPayloadTimeoutReceivedArguments = (event: event, payload: payload, timeout: timeout)
         return pushPayloadTimeoutClosure.map({ $0(event, payload, timeout) }) ?? pushPayloadTimeoutReturnValue
     }
 
-
-    //MARK: - leave
+    // MARK: - leave
 
     var leaveTimeoutCallsCount = 0
     var leaveTimeoutCalled: Bool {
@@ -254,8 +219,7 @@ class ChannelMock: Channel {
         return leaveTimeoutClosure.map({ $0(timeout) }) ?? leaveTimeoutReturnValue
     }
 
-
-    //MARK: - onMessage
+    // MARK: - onMessage
 
     var onMessageCallbackCallsCount = 0
     var onMessageCallbackCalled: Bool {
@@ -270,8 +234,7 @@ class ChannelMock: Channel {
         onMessageCallbackClosure?(callback)
     }
 
-
-    //MARK: - isMember
+    // MARK: - isMember
 
     var isMemberCallsCount = 0
     var isMemberCalled: Bool {
@@ -287,8 +250,7 @@ class ChannelMock: Channel {
         return isMemberClosure.map({ $0(message) }) ?? isMemberReturnValue
     }
 
-
-    //MARK: - sendJoin
+    // MARK: - sendJoin
 
     var sendJoinCallsCount = 0
     var sendJoinCalled: Bool {
@@ -303,8 +265,7 @@ class ChannelMock: Channel {
         sendJoinClosure?(timeout)
     }
 
-
-    //MARK: - rejoin
+    // MARK: - rejoin
 
     var rejoinCallsCount = 0
     var rejoinCalled: Bool {
@@ -319,8 +280,7 @@ class ChannelMock: Channel {
         rejoinClosure?(timeout)
     }
 
-
-    //MARK: - trigger
+    // MARK: - trigger
 
     var triggerCallsCount = 0
     var triggerCalled: Bool {
@@ -335,27 +295,26 @@ class ChannelMock: Channel {
         triggerClosure?(message)
     }
 
-
-    //MARK: - trigger
+    // MARK: - trigger
 
     var triggerEventPayloadRefJoinRefCallsCount = 0
     var triggerEventPayloadRefJoinRefCalled: Bool {
         return triggerEventPayloadRefJoinRefCallsCount > 0
     }
+    // swiftlint:disable:next large_tuple
     var triggerEventPayloadRefJoinRefReceivedArguments: (event: String, payload: Payload, ref: String, joinRef: String?)?
     var triggerEventPayloadRefJoinRefClosure: ((String, Payload, String, String?) -> Void)?
 
     override func trigger(event: String,
-               payload: Payload = [:],
-               ref: String = "",
-               joinRef: String? = nil) {
+                          payload: Payload = [:],
+                          ref: String = "",
+                          joinRef: String? = nil) {
         triggerEventPayloadRefJoinRefCallsCount += 1
-    triggerEventPayloadRefJoinRefReceivedArguments = (event: event, payload: payload, ref: ref, joinRef: joinRef)
+        triggerEventPayloadRefJoinRefReceivedArguments = (event: event, payload: payload, ref: ref, joinRef: joinRef)
         triggerEventPayloadRefJoinRefClosure?(event, payload, ref, joinRef)
     }
 
-
-    //MARK: - replyEventName
+    // MARK: - replyEventName
 
     var replyEventNameCallsCount = 0
     var replyEventNameCalled: Bool {
@@ -370,7 +329,6 @@ class ChannelMock: Channel {
         replyEventNameReceivedRef = ref
         return replyEventNameClosure.map({ $0(ref) }) ?? replyEventNameReturnValue
     }
-
 
 }
 class PushMock: Push {
@@ -415,14 +373,12 @@ class PushMock: Push {
         didSet { refEventSetCount += 1 }
     }
 
-
-    //MARK: - init
-
+    // MARK: - init
+    // swiftlint:disable:next large_tuple
     var initChannelEventPayloadTimeoutReceivedArguments: (channel: Channel, event: String, payload: Payload, timeout: TimeInterval)?
     var initChannelEventPayloadTimeoutClosure: ((Channel, String, Payload, TimeInterval) -> Void)?
 
-
-    //MARK: - resend
+    // MARK: - resend
 
     var resendCallsCount = 0
     var resendCalled: Bool {
@@ -437,8 +393,7 @@ class PushMock: Push {
         resendClosure?(timeout)
     }
 
-
-    //MARK: - send
+    // MARK: - send
 
     var sendCallsCount = 0
     var sendCalled: Bool {
@@ -451,26 +406,24 @@ class PushMock: Push {
         sendClosure?()
     }
 
-
-    //MARK: - receive
+    // MARK: - receive
 
     var receiveCallbackCallsCount = 0
     var receiveCallbackCalled: Bool {
         return receiveCallbackCallsCount > 0
     }
-    var receiveCallbackReceivedArguments: (status: String, callback: (Message) -> ())?
+    var receiveCallbackReceivedArguments: (status: String, callback: (Message) -> Void)?
     var receiveCallbackReturnValue: Push!
-    var receiveCallbackClosure: ((String, @escaping ((Message) -> ())) -> Push)?
+    var receiveCallbackClosure: ((String, @escaping ((Message) -> Void)) -> Push)?
 
     override func receive(_ status: String,
-                      callback: @escaping ((Message) -> ())) -> Push {
+                          callback: @escaping ((Message) -> Void)) -> Push {
         receiveCallbackCallsCount += 1
-    receiveCallbackReceivedArguments = (status: status, callback: callback)
+        receiveCallbackReceivedArguments = (status: status, callback: callback)
         return receiveCallbackClosure.map({ $0(status, callback) }) ?? receiveCallbackReturnValue
     }
 
-
-    //MARK: - delegateReceive<Target: AnyObject>
+    // MARK: - delegateReceive<Target: AnyObject>
 
     var delegateReceiveToCallbackCallsCount = 0
     var delegateReceiveToCallbackCalled: Bool {
@@ -479,14 +432,13 @@ class PushMock: Push {
     var delegateReceiveToCallbackReturnValue: Push!
 
     override func delegateReceive<Target: AnyObject>(_ status: String,
-                                                 to owner: Target,
-                                                 callback: @escaping ((Target, Message) -> ())) -> Push {
+                                                     to owner: Target,
+                                                     callback: @escaping ((Target, Message) -> Void)) -> Push {
         delegateReceiveToCallbackCallsCount += 1
         return delegateReceiveToCallbackReturnValue
     }
 
-
-    //MARK: - receive
+    // MARK: - receive
 
     var receiveDelegatedCallsCount = 0
     var receiveDelegatedCalled: Bool {
@@ -498,12 +450,11 @@ class PushMock: Push {
 
     override func receive(_ status: String, delegated: Delegated<Message, Void>) -> Push {
         receiveDelegatedCallsCount += 1
-    receiveDelegatedReceivedArguments = (status: status, delegated: delegated)
+        receiveDelegatedReceivedArguments = (status: status, delegated: delegated)
         return receiveDelegatedClosure.map({ $0(status, delegated) }) ?? receiveDelegatedReturnValue
     }
 
-
-    //MARK: - reset
+    // MARK: - reset
 
     var resetCallsCount = 0
     var resetCalled: Bool {
@@ -516,8 +467,7 @@ class PushMock: Push {
         resetClosure?()
     }
 
-
-    //MARK: - cancelTimeout
+    // MARK: - cancelTimeout
 
     var cancelTimeoutCallsCount = 0
     var cancelTimeoutCalled: Bool {
@@ -530,8 +480,7 @@ class PushMock: Push {
         cancelTimeoutClosure?()
     }
 
-
-    //MARK: - startTimeout
+    // MARK: - startTimeout
 
     var startTimeoutCallsCount = 0
     var startTimeoutCalled: Bool {
@@ -544,8 +493,7 @@ class PushMock: Push {
         startTimeoutClosure?()
     }
 
-
-    //MARK: - hasReceived
+    // MARK: - hasReceived
 
     var hasReceivedStatusCallsCount = 0
     var hasReceivedStatusCalled: Bool {
@@ -561,8 +509,7 @@ class PushMock: Push {
         return hasReceivedStatusClosure.map({ $0(status) }) ?? hasReceivedStatusReturnValue
     }
 
-
-    //MARK: - trigger
+    // MARK: - trigger
 
     var triggerPayloadCallsCount = 0
     var triggerPayloadCalled: Bool {
@@ -573,12 +520,13 @@ class PushMock: Push {
 
     override func trigger(_ status: String, payload: Payload) {
         triggerPayloadCallsCount += 1
-    triggerPayloadReceivedArguments = (status: status, payload: payload)
+        triggerPayloadReceivedArguments = (status: status, payload: payload)
         triggerPayloadClosure?(status, payload)
     }
 
-
 }
+
+// swiftlint:disable:next type_body_length
 class SocketMock: Socket {
     override var endPointUrl: URL {
         get { return underlyingEndPointUrl }
@@ -661,8 +609,8 @@ class SocketMock: Socket {
     }
     var underlyingReconnectTimer: (TimeoutTimer)!
     override var closeStatus: CloseStatus {
-      get { return underlyingCloseStatus }
-      set(value) { underlyingCloseStatus = value }
+        get { return underlyingCloseStatus }
+        set(value) { underlyingCloseStatus = value }
     }
     var underlyingCloseStatus: (CloseStatus)!
     var connectionSetCount: Int = 0
@@ -671,26 +619,22 @@ class SocketMock: Socket {
         didSet { connectionSetCount += 1 }
     }
 
-
-    //MARK: - init
+    // MARK: - init
 
     var initParamsReceivedArguments: (endPoint: String, params: Payload?)?
     var initParamsClosure: ((String, Payload?) -> Void)?
 
-
-    //MARK: - init
+    // MARK: - init
 
     var initParamsClosureReceivedArguments: (endPoint: String, paramsClosure: PayloadClosure?)?
     var initParamsClosureClosure: ((String, PayloadClosure?) -> Void)?
 
-
-    //MARK: - init
-
+    // MARK: - init
+    // swiftlint:disable:next large_tuple
     var initEndPointTransportParamsClosureReceivedArguments: (endPoint: String, transport: (URL) -> PhoenixTransport, paramsClosure: PayloadClosure?)?
     var initEndPointTransportParamsClosureClosure: ((String, @escaping ((URL) -> PhoenixTransport), PayloadClosure?) -> Void)?
 
-
-    //MARK: - deinit
+    // MARK: - deinit
 
     var deinitCallsCount = 0
     var deinitCalled: Bool {
@@ -698,8 +642,7 @@ class SocketMock: Socket {
     }
     var deinitClosure: (() -> Void)?
 
-
-    //MARK: - connect
+    // MARK: - connect
 
     var connectCallsCount = 0
     var connectCalled: Bool {
@@ -712,8 +655,7 @@ class SocketMock: Socket {
         connectClosure?()
     }
 
-
-    //MARK: - disconnect
+    // MARK: - disconnect
 
     var disconnectCodeCallbackCallsCount = 0
     var disconnectCodeCallbackCalled: Bool {
@@ -723,14 +665,13 @@ class SocketMock: Socket {
     var disconnectCodeCallbackClosure: ((CloseCode, (() -> Void)?) -> Void)?
 
     override func disconnect(code: CloseCode = CloseCode.normal,
-                         callback: (() -> Void)? = nil) {
+                             callback: (() -> Void)? = nil) {
         disconnectCodeCallbackCallsCount += 1
-    disconnectCodeCallbackReceivedArguments = (code: code, callback: callback)
+        disconnectCodeCallbackReceivedArguments = (code: code, callback: callback)
         disconnectCodeCallbackClosure?(code, callback)
     }
 
-
-    //MARK: - teardown
+    // MARK: - teardown
 
     var teardownCodeCallbackCallsCount = 0
     var teardownCodeCallbackCalled: Bool {
@@ -741,12 +682,11 @@ class SocketMock: Socket {
 
     override func teardown(code: CloseCode = CloseCode.normal, callback: (() -> Void)? = nil) {
         teardownCodeCallbackCallsCount += 1
-    teardownCodeCallbackReceivedArguments = (code: code, callback: callback)
+        teardownCodeCallbackReceivedArguments = (code: code, callback: callback)
         teardownCodeCallbackClosure?(code, callback)
     }
 
-
-    //MARK: - onOpen
+    // MARK: - onOpen
 
     var onOpenCallbackCallsCount = 0
     var onOpenCallbackCalled: Bool {
@@ -762,8 +702,7 @@ class SocketMock: Socket {
         return onOpenCallbackClosure.map({ $0(callback) }) ?? makeRefReturnValue
     }
 
-
-    //MARK: - delegateOnOpen<T: AnyObject>
+    // MARK: - delegateOnOpen<T: AnyObject>
 
     var delegateOnOpenToCallbackCallsCount = 0
     var delegateOnOpenToCallbackCalled: Bool {
@@ -772,13 +711,12 @@ class SocketMock: Socket {
     var delegateOnOpenToCallbackReturnValue: String!
 
     override func delegateOnOpen<T: AnyObject>(to owner: T,
-                                           callback: @escaping ((T) -> Void)) -> String {
+                                               callback: @escaping ((T) -> Void)) -> String {
         delegateOnOpenToCallbackCallsCount += 1
         return makeRefReturnValue
     }
 
-
-    //MARK: - onClose
+    // MARK: - onClose
 
     var onCloseCallbackCallsCount = 0
     var onCloseCallbackCalled: Bool {
@@ -794,8 +732,7 @@ class SocketMock: Socket {
         return onCloseCallbackClosure.map({ $0(callback) }) ?? makeRefReturnValue
     }
 
-
-    //MARK: - delegateOnClose<T: AnyObject>
+    // MARK: - delegateOnClose<T: AnyObject>
 
     var delegateOnCloseToCallbackCallsCount = 0
     var delegateOnCloseToCallbackCalled: Bool {
@@ -804,13 +741,12 @@ class SocketMock: Socket {
     var delegateOnCloseToCallbackReturnValue: String!
 
     override func delegateOnClose<T: AnyObject>(to owner: T,
-                                            callback: @escaping ((T) -> Void)) -> String {
+                                                callback: @escaping ((T) -> Void)) -> String {
         delegateOnCloseToCallbackCallsCount += 1
         return makeRefReturnValue
     }
 
-
-    //MARK: - onError
+    // MARK: - onError
 
     var onErrorCallbackCallsCount = 0
     var onErrorCallbackCalled: Bool {
@@ -826,8 +762,7 @@ class SocketMock: Socket {
         return onErrorCallbackClosure.map({ $0(callback) }) ?? makeRefReturnValue
     }
 
-
-    //MARK: - delegateOnError<T: AnyObject>
+    // MARK: - delegateOnError<T: AnyObject>
 
     var delegateOnErrorToCallbackCallsCount = 0
     var delegateOnErrorToCallbackCalled: Bool {
@@ -836,13 +771,12 @@ class SocketMock: Socket {
     var delegateOnErrorToCallbackReturnValue: String!
 
     override func delegateOnError<T: AnyObject>(to owner: T,
-                                            callback: @escaping ((T, Error) -> Void)) -> String {
+                                                callback: @escaping ((T, Error) -> Void)) -> String {
         delegateOnErrorToCallbackCallsCount += 1
         return makeRefReturnValue
     }
 
-
-    //MARK: - onMessage
+    // MARK: - onMessage
 
     var onMessageCallbackCallsCount = 0
     var onMessageCallbackCalled: Bool {
@@ -858,8 +792,7 @@ class SocketMock: Socket {
         return onMessageCallbackClosure.map({ $0(callback) }) ?? makeRefReturnValue
     }
 
-
-    //MARK: - delegateOnMessage<T: AnyObject>
+    // MARK: - delegateOnMessage<T: AnyObject>
 
     var delegateOnMessageToCallbackCallsCount = 0
     var delegateOnMessageToCallbackCalled: Bool {
@@ -868,13 +801,12 @@ class SocketMock: Socket {
     var delegateOnMessageToCallbackReturnValue: String!
 
     override func delegateOnMessage<T: AnyObject>(to owner: T,
-                                              callback: @escaping ((T, Message) -> Void)) -> String {
+                                                  callback: @escaping ((T, Message) -> Void)) -> String {
         delegateOnMessageToCallbackCallsCount += 1
         return makeRefReturnValue
     }
 
-
-    //MARK: - releaseCallbacks
+    // MARK: - releaseCallbacks
 
     var releaseCallbacksCallsCount = 0
     var releaseCallbacksCalled: Bool {
@@ -887,8 +819,7 @@ class SocketMock: Socket {
         releaseCallbacksClosure?()
     }
 
-
-    //MARK: - channel
+    // MARK: - channel
 
     var channelParamsCallsCount = 0
     var channelParamsCalled: Bool {
@@ -899,14 +830,13 @@ class SocketMock: Socket {
     var channelParamsClosure: ((String, [String: Any]) -> Channel)?
 
     override func channel(_ topic: String,
-                      params: [String: Any] = [:]) -> Channel {
+                          params: [String: Any] = [:]) -> Channel {
         channelParamsCallsCount += 1
-    channelParamsReceivedArguments = (topic: topic, params: params)
+        channelParamsReceivedArguments = (topic: topic, params: params)
         return channelParamsClosure.map({ $0(topic, params) }) ?? channelParamsReturnValue
     }
 
-
-    //MARK: - remove
+    // MARK: - remove
 
     var removeCallsCount = 0
     var removeCalled: Bool {
@@ -921,8 +851,7 @@ class SocketMock: Socket {
         removeClosure?(channel)
     }
 
-
-    //MARK: - off
+    // MARK: - off
 
     var offCallsCount = 0
     var offCalled: Bool {
@@ -937,28 +866,31 @@ class SocketMock: Socket {
         offClosure?(refs)
     }
 
-
-    //MARK: - push
+    // MARK: - push
 
     var pushTopicEventPayloadRefJoinRefCallsCount = 0
     var pushTopicEventPayloadRefJoinRefCalled: Bool {
         return pushTopicEventPayloadRefJoinRefCallsCount > 0
     }
-    var pushTopicEventPayloadRefJoinRefReceivedArguments: (topic: String, event: String, payload: Payload, ref: String?, joinRef: String?)?
+    // swiftlint:disable:next large_tuple
+    var pushTopicEventPayloadRefJoinRefReceivedArguments: (topic: String,
+                                                           event: String,
+                                                           payload: Payload,
+                                                           ref: String?,
+                                                           joinRef: String?)?
     var pushTopicEventPayloadRefJoinRefClosure: ((String, String, Payload, String?, String?) -> Void)?
 
     override func push(topic: String,
-                     event: String,
-                     payload: Payload,
-                     ref: String? = nil,
-                     joinRef: String? = nil) {
+                       event: String,
+                       payload: Payload,
+                       ref: String? = nil,
+                       joinRef: String? = nil) {
         pushTopicEventPayloadRefJoinRefCallsCount += 1
-    pushTopicEventPayloadRefJoinRefReceivedArguments = (topic: topic, event: event, payload: payload, ref: ref, joinRef: joinRef)
+        pushTopicEventPayloadRefJoinRefReceivedArguments = (topic: topic, event: event, payload: payload, ref: ref, joinRef: joinRef)
         pushTopicEventPayloadRefJoinRefClosure?(topic, event, payload, ref, joinRef)
     }
 
-
-    //MARK: - makeRef
+    // MARK: - makeRef
 
     var makeRefCallsCount = 0
     var makeRefCalled: Bool {
@@ -972,8 +904,7 @@ class SocketMock: Socket {
         return makeRefClosure.map({ $0() }) ?? makeRefReturnValue
     }
 
-
-    //MARK: - logItems
+    // MARK: - logItems
 
     var logItemsCallsCount = 0
     var logItemsCalled: Bool {
@@ -988,8 +919,7 @@ class SocketMock: Socket {
         logItemsClosure?(items)
     }
 
-
-    //MARK: - onConnectionOpen
+    // MARK: - onConnectionOpen
 
     var onConnectionOpenCallsCount = 0
     var onConnectionOpenCalled: Bool {
@@ -1002,8 +932,7 @@ class SocketMock: Socket {
         onConnectionOpenClosure?()
     }
 
-
-    //MARK: - onConnectionClosed
+    // MARK: - onConnectionClosed
 
     var onConnectionClosedCodeCallsCount = 0
     var onConnectionClosedCodeCalled: Bool {
@@ -1018,8 +947,7 @@ class SocketMock: Socket {
         onConnectionClosedCodeClosure?(code)
     }
 
-
-    //MARK: - onConnectionError
+    // MARK: - onConnectionError
 
     var onConnectionErrorCallsCount = 0
     var onConnectionErrorCalled: Bool {
@@ -1034,8 +962,7 @@ class SocketMock: Socket {
         onConnectionErrorClosure?(error)
     }
 
-
-    //MARK: - onConnectionMessage
+    // MARK: - onConnectionMessage
 
     var onConnectionMessageCallsCount = 0
     var onConnectionMessageCalled: Bool {
@@ -1050,8 +977,7 @@ class SocketMock: Socket {
         onConnectionMessageClosure?(rawMessage)
     }
 
-
-    //MARK: - triggerChannelError
+    // MARK: - triggerChannelError
 
     var triggerChannelErrorCallsCount = 0
     var triggerChannelErrorCalled: Bool {
@@ -1064,8 +990,7 @@ class SocketMock: Socket {
         triggerChannelErrorClosure?()
     }
 
-
-    //MARK: - flushSendBuffer
+    // MARK: - flushSendBuffer
 
     var flushSendBufferCallsCount = 0
     var flushSendBufferCalled: Bool {
@@ -1078,8 +1003,7 @@ class SocketMock: Socket {
         flushSendBufferClosure?()
     }
 
-
-    //MARK: - removeFromSendBuffer
+    // MARK: - removeFromSendBuffer
 
     var removeFromSendBufferRefCallsCount = 0
     var removeFromSendBufferRefCalled: Bool {
@@ -1094,8 +1018,7 @@ class SocketMock: Socket {
         removeFromSendBufferRefClosure?(ref)
     }
 
-
-    //MARK: - leaveOpenTopic
+    // MARK: - leaveOpenTopic
 
     var leaveOpenTopicTopicCallsCount = 0
     var leaveOpenTopicTopicCalled: Bool {
@@ -1110,8 +1033,7 @@ class SocketMock: Socket {
         leaveOpenTopicTopicClosure?(topic)
     }
 
-
-    //MARK: - resetHeartbeat
+    // MARK: - resetHeartbeat
 
     var resetHeartbeatCallsCount = 0
     var resetHeartbeatCalled: Bool {
@@ -1124,8 +1046,7 @@ class SocketMock: Socket {
         resetHeartbeatClosure?()
     }
 
-
-    //MARK: - sendHeartbeat
+    // MARK: - sendHeartbeat
 
     var sendHeartbeatCallsCount = 0
     var sendHeartbeatCalled: Bool {
@@ -1138,8 +1059,7 @@ class SocketMock: Socket {
         sendHeartbeatClosure?()
     }
 
-
-    //MARK: - abnormalClose
+    // MARK: - abnormalClose
 
     var abnormalCloseCallsCount = 0
     var abnormalCloseCalled: Bool {
@@ -1154,8 +1074,7 @@ class SocketMock: Socket {
         abnormalCloseClosure?(reason)
     }
 
-
-    //MARK: - onOpen
+    // MARK: - onOpen
 
     var onOpenCallsCount = 0
     var onOpenCalled: Bool {
@@ -1168,8 +1087,7 @@ class SocketMock: Socket {
         onOpenClosure?()
     }
 
-
-    //MARK: - onError
+    // MARK: - onError
 
     var onErrorErrorCallsCount = 0
     var onErrorErrorCalled: Bool {
@@ -1184,8 +1102,7 @@ class SocketMock: Socket {
         onErrorErrorClosure?(error)
     }
 
-
-    //MARK: - onMessage
+    // MARK: - onMessage
 
     var onMessageMessageCallsCount = 0
     var onMessageMessageCalled: Bool {
@@ -1200,8 +1117,7 @@ class SocketMock: Socket {
         onMessageMessageClosure?(message)
     }
 
-
-    //MARK: - onClose
+    // MARK: - onClose
 
     var onCloseCodeCallsCount = 0
     var onCloseCodeCalled: Bool {
@@ -1215,7 +1131,6 @@ class SocketMock: Socket {
         onCloseCodeReceivedCode = code
         onCloseCodeClosure?(code)
     }
-
 
 }
 class TimeoutTimerMock: TimeoutTimer {
@@ -1245,8 +1160,7 @@ class TimeoutTimerMock: TimeoutTimer {
     }
     var underlyingQueue: (TimerQueue)!
 
-
-    //MARK: - reset
+    // MARK: - reset
 
     var resetCallsCount = 0
     var resetCalled: Bool {
@@ -1259,8 +1173,7 @@ class TimeoutTimerMock: TimeoutTimer {
         resetClosure?()
     }
 
-
-    //MARK: - scheduleTimeout
+    // MARK: - scheduleTimeout
 
     var scheduleTimeoutCallsCount = 0
     var scheduleTimeoutCalled: Bool {
@@ -1272,6 +1185,5 @@ class TimeoutTimerMock: TimeoutTimer {
         scheduleTimeoutCallsCount += 1
         scheduleTimeoutClosure?()
     }
-
-
+    // swiftlint:disable:next file_length
 }

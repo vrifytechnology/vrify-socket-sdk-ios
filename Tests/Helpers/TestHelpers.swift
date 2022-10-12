@@ -36,7 +36,6 @@ func transform(_ lhs: [AnyHashable: Any],
   return (NSDictionary(dictionary: lhs), NSDictionary(dictionary: rhs))
 }
 
-
 extension Channel {
   /// Utility method to easily filter the bindings for a channel by their event
   func getBindings(_ event: String) -> [Binding]? {

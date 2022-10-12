@@ -18,7 +18,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-
 import Foundation
 import Combine
 
@@ -27,7 +26,6 @@ public enum SocketError: Error {
     case abnormalClosureError
 
 }
-
 
 /// Alias for a JSON dictionary [String: Any]
 public typealias Payload = [String: Any]
@@ -50,10 +48,9 @@ public typealias PayloadClosure = () -> Payload?
 /// the Socket docs, such as configuring the heartbeat.
 public class Socket: PhoenixTransportDelegate {
 
-
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // MARK: - Public Attributes
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     /// The string WebSocket endpoint (ie `"ws://example.com/socket"`,
     /// `"wss://example.com"`, etc.) That was passed to the Socket during
     /// initialization. The URL endpoint will be modified by the Socket to
@@ -82,7 +79,7 @@ public class Socket: PhoenixTransportDelegate {
     public let vsn: String
 
     /// Override to provide custom encoding of data before writing to the socket
-    public var encode: (Any) -> Data = Defaults.encode
+    public var encode: (Any) throws -> Data = Defaults.encode
 
     /// Override to provide customd decoding of data read from the socket
     public var decode: (Data) -> Any? = Defaults.decode
@@ -127,20 +124,19 @@ public class Socket: PhoenixTransportDelegate {
     public var enabledSSLCipherSuites: [SSLCipherSuite]?
 #endif
 
-
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // MARK: - Private Attributes
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     /// Collection on channels created for the Socket
     var channels: [Channel] = []
 
     /// Buffers messages that need to be sent once the socket has connected. It is an array
     /// of tuples, with the ref of the message to send and the callback that will send the message.
-    var sendBuffer: [(ref: String?, callback: () throws -> ())] = []
+    var sendBuffer: [(ref: String?, callback: () throws -> Void)] = []
 
     /// Ref counter for messages
     var ref: UInt64 = UInt64.min // 0 (max: 18,446,744,073,709,551,615)
-    
+
     /// Timer that triggers sending new Heartbeat messages
     var heartbeatTimer: HeartbeatTimer?
 
@@ -154,12 +150,11 @@ public class Socket: PhoenixTransportDelegate {
     var closeStatus: CloseStatus = .unknown
 
     /// The connection to the server
-    var connection: PhoenixTransport? = nil
+    var connection: PhoenixTransport?
 
-
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // MARK: - Initialization
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
     public convenience init(_ endPoint: String,
                             params: Payload? = nil,
@@ -180,7 +175,6 @@ public class Socket: PhoenixTransportDelegate {
                   vsn: vsn)
     }
 
-
     public init(endPoint: String,
                 transport: @escaping ((URL) -> PhoenixTransport),
                 paramsClosure: PayloadClosure? = nil,
@@ -196,7 +190,7 @@ public class Socket: PhoenixTransportDelegate {
         self.reconnectTimer = TimeoutTimer()
         self.reconnectTimer.callback = { [weak self] in
             self?.logItems("Socket attempting to reconnect")
-            self?.teardown() { [weak self] in self?.connect() }
+            self?.teardown { [weak self] in self?.connect() }
         }
         self.reconnectTimer.timerCalculation = { [weak self] tries -> TimeInterval in
             let interval = self?.reconnectAfter(tries) ?? Defaults.reconnectSteppedBackOff(tries)
@@ -209,9 +203,9 @@ public class Socket: PhoenixTransportDelegate {
         reconnectTimer.reset()
     }
 
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // MARK: - Public
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     /// - return: The socket protocol, wss or ws
     public var websocketProtocol: String {
         switch endPointUrl.scheme {
@@ -269,7 +263,6 @@ public class Socket: PhoenixTransportDelegate {
         self.teardown(code: code, callback: callback)
     }
 
-
     internal func teardown(code: CloseCode = CloseCode.normal, callback: (() -> Void)? = nil) {
         self.connection?.delegate = nil
         self.connection?.disconnect(code: code.rawValue, reason: nil)
@@ -284,9 +277,9 @@ public class Socket: PhoenixTransportDelegate {
         callback?()
     }
 
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // MARK: - Channel Initialization
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     /// Initialize a new Channel
     ///
     /// Example:
@@ -326,9 +319,9 @@ public class Socket: PhoenixTransportDelegate {
         self.channels = channels
     }
 
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // MARK: - Sending Data
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     /// Sends data through the Socket. This method is internal. Instead, you
     /// should call `push(_:, payload:, timeout:)` on the Channel you are
     /// sending an event to.
@@ -344,11 +337,12 @@ public class Socket: PhoenixTransportDelegate {
                        ref: String? = nil,
                        joinRef: String? = nil) {
 
-        let callback: (() throws -> ()) = {
+        let callback: (() throws -> Void) = {
             let body: [Any?] = [joinRef, ref, topic, event, payload]
-            let data = self.encode(body)
+            let data = try self.encode(body)
 
             self.logItems("push", "Sending \(String(data: data, encoding: String.Encoding.utf8) ?? "")" )
+
             self.connection?.send(data: data)
         }
 
@@ -372,13 +366,13 @@ public class Socket: PhoenixTransportDelegate {
     ///
     /// - paramter items: List of items to be logged. Behaves just like debugPrint()
     func logItems(_ items: Any...) {
-        let msg = items.map( { return String(describing: $0) } ).joined(separator: ", ")
+        let msg = items.map({ return String(describing: $0) }).joined(separator: ", ")
         self.logger?("SwiftPhoenixClient: \(msg)")
     }
 
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // MARK: - Connection Events
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     /// Called when the underlying Websocket connects to it's host
     internal func onConnectionOpen() {
         self.logItems("transport", "Connected to \(endPoint)")
@@ -410,7 +404,7 @@ public class Socket: PhoenixTransportDelegate {
 
         // Only attempt to reconnect if the socket did not close normally,
         // or if it was closed abnormally but on client side (e.g. due to heartbeat timeout)
-        if (self.closeStatus.shouldReconnect) {
+        if self.closeStatus.shouldReconnect {
             await self.reconnectTimer.scheduleTimeout()
         }
 
@@ -472,7 +466,7 @@ public class Socket: PhoenixTransportDelegate {
     /// Send all messages that were buffered before the socket opened
     internal func flushSendBuffer() {
         guard isConnected && sendBuffer.count > 0 else { return }
-        self.sendBuffer.forEach( { try? $0.callback() } )
+        self.sendBuffer.forEach({ try? $0.callback() })
         self.sendBuffer = []
     }
 
@@ -514,7 +508,6 @@ public class Socket: PhoenixTransportDelegate {
         return qualifiedUrl
     }
 
-
     // Leaves any channel that is open that has a duplicate topic
     internal func leaveOpenTopic(topic: String) async {
         for channel in self.channels {
@@ -527,9 +520,9 @@ public class Socket: PhoenixTransportDelegate {
         }
     }
 
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // MARK: - Heartbeat
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     internal func resetHeartbeat() {
         // Clear anything related to the heartbeat
         self.pendingHeartbeatRef = nil
@@ -548,7 +541,6 @@ public class Socket: PhoenixTransportDelegate {
     @objc func sendHeartbeat() {
         // Do not send if the connection is closed
         guard isConnected else { return }
-
 
         // If there is a pending heartbeat ref, then the last heartbeat was
         // never acknowledged by the server. Close the connection and attempt
@@ -587,10 +579,9 @@ public class Socket: PhoenixTransportDelegate {
         self.connection?.disconnect(code: CloseCode.normal.rawValue, reason: reason)
     }
 
-
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     // MARK: - TransportDelegate
-    //----------------------------------------------------------------------
+    // ----------------------------------------------------------------------
     public func onOpen() {
         self.onConnectionOpen()
     }
@@ -609,12 +600,11 @@ public class Socket: PhoenixTransportDelegate {
     }
 }
 
-
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 // MARK: - Close Codes
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 extension Socket {
-    public enum CloseCode : Int {
+    public enum CloseCode: Int {
         case abnormal = 999
 
         case normal = 1000
@@ -623,10 +613,9 @@ extension Socket {
     }
 }
 
-
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 // MARK: - Close Status
-//----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 extension Socket {
     /// Indicates the different closure states a socket can be in.
     enum CloseStatus {
