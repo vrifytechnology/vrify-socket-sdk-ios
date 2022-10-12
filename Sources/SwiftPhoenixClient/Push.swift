@@ -38,13 +38,7 @@ public class Push {
     public var timeout: TimeInterval
 
     /// Publisher that emits the server's response to the Push
-    public let messagePublisher = CurrentValueSubject<Message?, PushError>(nil)
-
-    /// The server's response to the Push
-    var receivedMessage: Message?
-
-    /// True if the Push has been sent
-    var sent: Bool
+    public let pushResponse = CurrentValueSubject<Message?, PushError>(nil)
 
     /// The reference ID of the Push
     var ref: String?
@@ -69,8 +63,6 @@ public class Push {
         self.event = event
         self.payload = payload
         self.timeout = timeout
-        self.receivedMessage = nil
-        self.sent = false
         self.ref = nil
     }
 
@@ -90,7 +82,6 @@ public class Push {
         guard !hasReceived(status: "timeout") else { return }
 
         await self.startTimeout()
-        self.sent = true
         await self.channel?.socket?
             .push(topic: channel?.topic ?? "",
                   event: self.event,
@@ -99,18 +90,18 @@ public class Push {
                   joinRef: channel?.joinRef
             )
     }
+}
 
+extension Push {
     /// Resets the Push as it was after it was first initialized.
-    internal func reset() async  {
+    func reset() async  {
         self.ref = nil
         self.refEvent = nil
-        self.receivedMessage = nil
-        self.sent = false
     }
 
     /// Starts the Timer which will trigger a timeout after a specific _timeout_
     /// time, in milliseconds, is reached.
-    internal func startTimeout() async {
+    func startTimeout() async {
         guard
             let channel = channel,
             let socket = await channel.socket else { return }
@@ -129,17 +120,13 @@ public class Push {
         /// and match the recevied event to it's corresponding
         channel.messagePublisher
             .filter { $0.event == ChannelEvent.reply && $0.ref == ref }
-            .timeout(.seconds(1),
-                     scheduler: DispatchQueue.global(),
-                     customError: { [self] in .timeout(event: event, payload: payload) } )
-            .sink(receiveCompletion: { _ in
-                // Ignore completions and allow the publisher to finish regardless of timeout
-            }, receiveValue: { [weak self] message in
-                self?.receivedMessage = message
-
-                /// Check if there is event a status available
-                guard message.status != nil else { return }
-                self?.messagePublisher.send(message)
+            .sink(receiveCompletion: { [weak self] in
+                if case .failure(let error) = $0,
+                   self?.pushResponse.value == nil {
+                    self?.handleMessagePublisher(error)
+                }
+            }, receiveValue: { [weak self] in
+                self?.handleReceived(message: $0)
             })
             .store(in: &cancellables)
     }
@@ -153,37 +140,43 @@ public class Push {
                      scheduler: DispatchQueue.global(),
                      customError: { [self] in .timeout(event: event, payload: payload) } )
             .sink(receiveCompletion: { [weak self] in
-                if case .failure = $0,
-                   self?.receivedMessage == nil {
-                    Task { [weak self] in
-                        await self?.channel?.socket?
-                            .logItems("push",
-"""
- Push timed out waiting for a response. Note that Phoenix does not require Channel responses.
- Implementations of of `handle_in` with {:noreply, socket} should not consider this an error.
-""")
-                    }
+                if case .failure(let error) = $0,
+                   self?.pushResponse.value == nil {
+                    self?.handleMessagePublisher(error)
                 }
-            }, receiveValue: { [weak self] message in
-                self?.receivedMessage = message
-
-                /// Check if there is event a status available
-                guard message.status != nil else { return }
-                self?.messagePublisher.send(message)
+            }, receiveValue: { [weak self] in
+                self?.handleReceived(message: $0)
             })
             .store(in: &cancellables)
+    }
+
+    func handleReceived(message: Message) {
+        /// Check if there is event a status available
+        guard message.status != nil else { return }
+        pushResponse.send(message)
+    }
+
+    func handleMessagePublisher(_ error: PushError) {
+        pushResponse.send(completion: .failure(error))
+        Task { [weak self] in
+            await self?.channel?.socket?.logItems("push",
+"""
+Push errored waiting for a response. Note that Phoenix does not require Channel responses.
+Implementations of `handle_in` with {:noreply, socket} should not consider this an error in the case of a timeout.
+""")
+        }
     }
 
     /// Checks if a status has already been received by the Push.
     ///
     /// - parameter status: Status to check
     /// - return: True if given status has been received by the Push.
-    internal func hasReceived(status: String) -> Bool {
-        return self.receivedMessage?.status == status
+    func hasReceived(status: String) -> Bool {
+        return self.pushResponse.value?.status == status
     }
 
     /// Triggers an event to be sent though the Channel
-    internal func trigger(_ status: String, payload: Payload) async {
+    func trigger(_ status: String, payload: Payload) async {
         /// If there is no ref event, then there is nothing to trigger on the channel
         guard let refEvent = self.refEvent else { return }
 

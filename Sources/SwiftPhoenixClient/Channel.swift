@@ -141,7 +141,7 @@ public actor Channel {
     func setupJoinPushSinks() {
         /// Handle when a response is received after join()
         joinPush
-            .messagePublisher
+            .pushResponse
             .compactMap { $0 }
             .filter { $0.status == "ok"}
             .sink(receiveCompletion: { [weak self] in
@@ -293,15 +293,6 @@ public actor Channel {
         rejoinTimer.reset()
     }
 
-    /// Overridable message hook. Receives all events for specialized message
-    /// handling before dispatching to the channel callbacks.
-    ///
-    /// - parameter msg: The Message received by the client from the server
-    /// - return: Must return the message, modified or unmodified
-//    public var onMessage: (_ message: Message) -> Message = { (message) in
-//        return message
-//    }
-
     /// Joins the channel
     ///
     /// - parameter timeout: Optional. Defaults to Channel's timeout
@@ -321,190 +312,15 @@ public actor Channel {
         return joinPush
     }
 
-
-    /// Hook into when the Channel is closed. Does not handle retain cycles.
-    /// Use `delegateOnClose(to:)` for automatic handling of retain cycles.
-    ///
-    /// Example:
-    ///
-    ///     let channel = socket.channel("topic")
-    ///     channel.onClose() { [weak self] message in
-    ///         self?.print("Channel \(message.topic) has closed"
-    ///     }
-    ///
-    /// - parameter callback: Called when the Channel closes
-    /// - return: Ref counter of the subscription. See `func off()`
-//    @discardableResult
-//    public func onClose(_ callback: @escaping ((Message) -> Void)) -> Int {
-//        return self.on(ChannelEvent.close, callback: callback)
-//    }
-
-    /// Hook into when the Channel is closed. Automatically handles retain
-    /// cycles. Use `onClose()` to handle yourself.
-    ///
-    /// Example:
-    ///
-    ///     let channel = socket.channel("topic")
-    ///     channel.delegateOnClose(to: self) { (self, message) in
-    ///         self.print("Channel \(message.topic) has closed"
-    ///     }
-    ///
-    /// - parameter owner: Class registering the callback. Usually `self`
-    /// - parameter callback: Called when the Channel closes
-    /// - return: Ref counter of the subscription. See `func off()`
-//    @discardableResult
-//    public func delegateOnClose<Target: AnyObject>(to owner: Target,
-//                                                   callback: @escaping ((Target, Message) -> Void)) -> Int {
-//        return self.delegateOn(ChannelEvent.close, to: owner, callback: callback)
-//    }
-
-    /// Hook into when the Channel receives an Error. Does not handle retain
-    /// cycles. Use `delegateOnError(to:)` for automatic handling of retain
-    /// cycles.
-    ///
-    /// Example:
-    ///
-    ///     let channel = socket.channel("topic")
-    ///     channel.onError() { [weak self] (message) in
-    ///         self?.print("Channel \(message.topic) has errored"
-    ///     }
-    ///
-    /// - parameter callback: Called when the Channel closes
-    /// - return: Ref counter of the subscription. See `func off()`
-//    @discardableResult
-//    public func onError(_ callback: @escaping ((_ message: Message) -> Void)) -> Int {
-//        return self.on(ChannelEvent.error, callback: callback)
-//    }
-
-    /// Hook into when the Channel receives an Error. Automatically handles
-    /// retain cycles. Use `onError()` to handle yourself.
-    ///
-    /// Example:
-    ///
-    ///     let channel = socket.channel("topic")
-    ///     channel.delegateOnError(to: self) { (self, message) in
-    ///         self.print("Channel \(message.topic) has closed"
-    ///     }
-    ///
-    /// - parameter owner: Class registering the callback. Usually `self`
-    /// - parameter callback: Called when the Channel closes
-    /// - return: Ref counter of the subscription. See `func off()`
-//    @discardableResult
-//    public func delegateOnError<Target: AnyObject>(to owner: Target,
-//                                                   callback: @escaping ((Target, Message) -> Void)) -> Int {
-//        return self.delegateOn(ChannelEvent.error, to: owner, callback: callback)
-//    }
-
-    /// Subscribes on channel events. Does not handle retain cycles. Use
-    /// `delegateOn(_:, to:)` for automatic handling of retain cycles.
-    ///
-    /// Subscription returns a ref counter, which can be used later to
-    /// unsubscribe the exact event listener
-    ///
-    /// Example:
-    ///
-    ///     let channel = socket.channel("topic")
-    ///     let ref1 = channel.on("event") { [weak self] (message) in
-    ///         self?.print("do stuff")
-    ///     }
-    ///     let ref2 = channel.on("event") { [weak self] (message) in
-    ///         self?.print("do other stuff")
-    ///     }
-    ///     channel.off("event", ref1)
-    ///
-    /// Since unsubscription of ref1, "do stuff" won't print, but "do other
-    /// stuff" will keep on printing on the "event"
-    ///
-    /// - parameter event: Event to receive
-    /// - parameter callback: Called with the event's message
-    /// - return: Ref counter of the subscription. See `func off()`
-//    @discardableResult
-//    public func on(_ event: String, callback: @escaping ((Message) -> Void)) -> Int {
-//        var delegated = Delegated<Message, Void>()
-//        delegated.manuallyDelegate(with: callback)
-//
-//        return self.on(event, delegated: delegated)
-//    }
-
-
-    /// Subscribes on channel events. Automatically handles retain cycles. Use
-    /// `on()` to handle yourself.
-    ///
-    /// Subscription returns a ref counter, which can be used later to
-    /// unsubscribe the exact event listener
-    ///
-    /// Example:
-    ///
-    ///     let channel = socket.channel("topic")
-    ///     let ref1 = channel.delegateOn("event", to: self) { (self, message) in
-    ///         self?.print("do stuff")
-    ///     }
-    ///     let ref2 = channel.delegateOn("event", to: self) { (self, message) in
-    ///         self?.print("do other stuff")
-    ///     }
-    ///     channel.off("event", ref1)
-    ///
-    /// Since unsubscription of ref1, "do stuff" won't print, but "do other
-    /// stuff" will keep on printing on the "event"
-    ///
-    /// - parameter event: Event to receive
-    /// - parameter owner: Class registering the callback. Usually `self`
-    /// - parameter callback: Called with the event's message
-    /// - return: Ref counter of the subscription. See `func off()`
-//    @discardableResult
-//    public func delegateOn<Target: AnyObject>(_ event: String,
-//                                              to owner: Target,
-//                                              callback: @escaping ((Target, Message) -> Void)) -> Int {
-//        var delegated = Delegated<Message, Void>()
-//        delegated.delegate(to: owner, with: callback)
-//
-//        return self.on(event, delegated: delegated)
-//    }
-//
-//    /// Shared method between `on` and `manualOn`
-//    @discardableResult
-//    private func on(_ event: String, delegated: Delegated<Message, Void>) -> Int {
-//        let ref = bindingRef
-//        self.bindingRef = ref + 1
-//
-//        self.bindingsDel.append(Binding(event: event, ref: ref, callback: delegated))
-//        return ref
-//    }
-
-    /// Unsubscribes from a channel event. If a `ref` is given, only the exact
-    /// listener will be removed. Else all listeners for the `event` will be
-    /// removed.
-    ///
-    /// Example:
-    ///
-    ///     let channel = socket.channel("topic")
-    ///     let ref1 = channel.on("event") { _ in print("ref1 event" }
-    ///     let ref2 = channel.on("event") { _ in print("ref2 event" }
-    ///     let ref3 = channel.on("other_event") { _ in print("ref3 other" }
-    ///     let ref4 = channel.on("other_event") { _ in print("ref4 other" }
-    ///     channel.off("event", ref1)
-    ///     channel.off("other_event")
-    ///
-    /// After this, only "ref2 event" will be printed if the channel receives
-    /// "event" and nothing is printed if the channel receives "other_event".
-    ///
-    /// - parameter event: Event to unsubscribe from
-    /// - paramter ref: Ref counter returned when subscribing. Can be omitted
-//    public func off(_ event: String, ref: Int? = nil) {
-//        self.bindingsDel.removeAll { (bind) -> Bool in
-//            bind.event == event && (ref == nil || ref == bind.ref)
-//        }
-//    }
-
     /// Creates a Push with a payload for the Channel
     ///
     /// Example:
     ///
-    ///     channel.push("event", payload: ["message": "hello")
+    ///     channel.createPush("event", payload: ["message": "hello"), timeout: Default.timeoutInterval)
     ///
     /// - parameter event: Event to push
     /// - parameter payload: Payload to push
-    /// - parameter timeout: Optional timeout
+    /// - parameter timeout: Timeout. A timeout of 0.0 will never result in a timeout Error.
     @discardableResult
     public func createPush(_ event: String,
                            payload: Payload,
@@ -524,7 +340,7 @@ public actor Channel {
     ///     channel.send(push)
     ///
     /// - parameter push: Push object to send over the Socket
-    public func send(push: Push) async {
+    public func send(_ push: Push) async {
         guard joinedOnce else { fatalError("Tried to push \(push.event) to \(self.topic) before joining. Use channel.join() before pushing events") }
 
         if canPush {
@@ -533,37 +349,6 @@ public actor Channel {
             await push.startTimeout()
             pushBuffer.append(push)
         }
-    }
-
-    /// Push a payload to the Channel
-    ///
-    /// Example:
-    ///
-    ///     channel
-    ///         .push("event", payload: ["message": "hello")
-    ///         .receive("ok") { _ in { print("message sent") }
-    ///
-    /// - parameter event: Event to push
-    /// - parameter payload: Payload to push
-    /// - parameter timeout: Timeout. A value of 0.0 will never generate a timeout Error.
-    @discardableResult
-    public func push(_ event: String,
-                     payload: Payload,
-                     timeout: TimeInterval) async -> Push {
-        guard joinedOnce else { fatalError("Tried to push \(event) to \(self.topic) before joining. Use channel.join() before pushing events") }
-
-        let pushEvent = Push(channel: self,
-                             event: event,
-                             payload: payload,
-                             timeout: timeout)
-        if canPush {
-            await pushEvent.send()
-        } else {
-            await pushEvent.startTimeout()
-            pushBuffer.append(pushEvent)
-        }
-
-        return pushEvent
     }
 
     /// Leaves the channel
@@ -604,7 +389,7 @@ public actor Channel {
         // Perform the same behavior if successfully left the channel
         // or if sending the event timed out
         leavePush
-            .messagePublisher
+            .pushResponse
             .compactMap { $0 }
             .sink(receiveCompletion: { [weak self] in
                 switch $0 {
