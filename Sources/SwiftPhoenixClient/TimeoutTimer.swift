@@ -78,9 +78,9 @@ class TimeoutTimer {
         // start the timer if the interval is returned as nil.
         guard let timeInterval = await self.timerCalculation?(self.tries + 1) else { return }
 
-        let workItem = DispatchWorkItem {
-            self.tries += 1
-            self.callback?()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.tries += 1
+            self?.callback?()
         }
 
         self.workItem = workItem
