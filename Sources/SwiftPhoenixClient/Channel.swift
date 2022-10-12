@@ -112,10 +112,9 @@ public actor Channel {
 
     func setupDelegates() {
         // Setup Timer delgation
-        self.rejoinTimer.callback
-            .delegate(to: self) { (self) in
-                Task {
-                    if await self.socket?.isConnected == true { await self.rejoin() }
+        self.rejoinTimer.callback = { [weak self] in
+                Task { [weak self] in
+                    if await self?.socket?.isConnected == true { await self?.rejoin() }
                 }
             }
 
@@ -124,18 +123,18 @@ public actor Channel {
         }
 
         // Respond to socket events
-        let onErrorRef = self.socket?.delegateOnError(to: self, callback: { (self, _) in
-            Task { await self.rejoinTimer.reset() }
-        })
-        if let ref = onErrorRef { self.stateChangeRefs.append(ref) }
+        self.socket?.socketErrored.sink { [weak self] _ in
+            Task { [weak self] in await self?.rejoinTimer.reset() }
+        }
+        .store(in: &cancellables)
 
-        let onOpenRef = self.socket?.delegateOnOpen(to: self, callback: { (self) in
-            Task {
-                await self.rejoinTimer.reset()
-                if await (self.isErrored) { await self.rejoin() }
+        self.socket?.socketOpened.sink { [weak self] in
+            Task { [weak self] in
+                await self?.rejoinTimer.reset()
+                if await (self?.isErrored ?? false) { await self?.rejoin() }
             }
-        })
-        if let ref = onOpenRef { self.stateChangeRefs.append(ref) }
+        }
+        .store(in: &cancellables)
     }
 
     func setupJoinPushSinks() {
@@ -374,12 +373,6 @@ public actor Channel {
 
         // Now set the state to leaving
         self.state = .leaving
-
-        /// Delegated callback for a successful or a failed channel leave
-        var onCloseDelegate = Delegated<Message, Void>()
-        onCloseDelegate.delegate(to: self) { (self, message) in
-
-        }
 
         // Push event to send to the server
         let leavePush = Push(channel: self,

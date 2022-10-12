@@ -46,7 +46,7 @@ import Foundation
 class TimeoutTimer {
 
     /// Callback to be informed when the underlying Timer fires
-    var callback = Delegated<(), Void>()
+    var callback: (() -> Void)?
 
     /// Provides TimeInterval to use when scheduling the timer
     var timerCalculation: ((Int) async -> TimeInterval)?
@@ -80,7 +80,7 @@ class TimeoutTimer {
 
         let workItem = DispatchWorkItem {
             self.tries += 1
-            self.callback.call()
+            self.callback?()
         }
 
         self.workItem = workItem

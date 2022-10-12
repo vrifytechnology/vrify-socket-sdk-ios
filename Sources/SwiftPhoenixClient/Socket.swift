@@ -20,6 +20,7 @@
 
 
 import Foundation
+import Combine
 
 public enum SocketError: Error {
 
@@ -33,15 +34,6 @@ public typealias Payload = [String: Any]
 
 /// Alias for a function returning an optional JSON dictionary (`Payload?`)
 public typealias PayloadClosure = () -> Payload?
-
-/// Struct that gathers callbacks assigned to the Socket
-struct StateChangeCallbacks {
-    var open: [(ref: String, callback: Delegated<Void, Void>)] = []
-    var close: [(ref: String, callback: Delegated<Void, Void>)] = []
-    var error: [(ref: String, callback: Delegated<Error, Void>)] = []
-    var message: [(ref: String, callback: Delegated<Message, Void>)] = []
-}
-
 
 /// ## Socket Connection
 /// A single connection is established to the server and
@@ -117,6 +109,12 @@ public class Socket: PhoenixTransportDelegate {
     /// must be set before calling `socket.connect()` in order to be applied
     public var disableSSLCertValidation: Bool = false
 
+    /// State change publishers
+    public let socketOpened = PassthroughSubject<Void, Never>()
+    public let socketClosed = PassthroughSubject<Void, Never>()
+    public let socketErrored = PassthroughSubject<Error, Never>()
+    public let socketRecievedMessage = PassthroughSubject<Message, Never>()
+
 #if os(Linux)
 #else
     /// Configure custom SSL validation logic, eg. SSL pinning. This
@@ -133,9 +131,6 @@ public class Socket: PhoenixTransportDelegate {
     //----------------------------------------------------------------------
     // MARK: - Private Attributes
     //----------------------------------------------------------------------
-    /// Callbacks for socket state changes
-    var stateChangeCallbacks: StateChangeCallbacks = StateChangeCallbacks()
-
     /// Collection on channels created for the Socket
     var channels: [Channel] = []
 
@@ -199,9 +194,9 @@ public class Socket: PhoenixTransportDelegate {
                                                    vsn: vsn)
 
         self.reconnectTimer = TimeoutTimer()
-        self.reconnectTimer.callback.delegate(to: self) { (self) in
-            self.logItems("Socket attempting to reconnect")
-            self.teardown() { self.connect() }
+        self.reconnectTimer.callback = { [weak self] in
+            self?.logItems("Socket attempting to reconnect")
+            self?.teardown() { [weak self] in self?.connect() }
         }
         self.reconnectTimer.timerCalculation = { [weak self] tries -> TimeInterval in
             let interval = self?.reconnectAfter(tries) ?? Defaults.reconnectSteppedBackOff(tries)
@@ -285,187 +280,9 @@ public class Socket: PhoenixTransportDelegate {
 
         // Since the connection's delegate was nil'd out, inform all state
         // callbacks that the connection has closed
-        self.stateChangeCallbacks.close.forEach({ $0.callback.call() })
+        socketClosed.send()
         callback?()
     }
-
-
-
-    //----------------------------------------------------------------------
-    // MARK: - Register Socket State Callbacks
-    //----------------------------------------------------------------------
-
-    /// Registers callbacks for connection open events. Does not handle retain
-    /// cycles. Use `delegateOnOpen(to:)` for automatic handling of retain cycles.
-    ///
-    /// Example:
-    ///
-    ///     socket.onOpen() { [weak self] in
-    ///         self?.print("Socket Connection Open")
-    ///     }
-    ///
-    /// - parameter callback: Called when the Socket is opened
-    @discardableResult
-    public func onOpen(callback: @escaping () -> Void) -> String {
-        var delegated = Delegated<Void, Void>()
-        delegated.manuallyDelegate(with: callback)
-
-        return self.append(callback: delegated, to: &self.stateChangeCallbacks.open)
-    }
-
-    /// Registers callbacks for connection open events. Automatically handles
-    /// retain cycles. Use `onOpen()` to handle yourself.
-    ///
-    /// Example:
-    ///
-    ///     socket.delegateOnOpen(to: self) { self in
-    ///         self.print("Socket Connection Open")
-    ///     }
-    ///
-    /// - parameter owner: Class registering the callback. Usually `self`
-    /// - parameter callback: Called when the Socket is opened
-    @discardableResult
-    public func delegateOnOpen<T: AnyObject>(to owner: T,
-                                             callback: @escaping ((T) -> Void)) -> String {
-        var delegated = Delegated<Void, Void>()
-        delegated.delegate(to: owner, with: callback)
-
-        return self.append(callback: delegated, to: &self.stateChangeCallbacks.open)
-    }
-
-    /// Registers callbacks for connection close events. Does not handle retain
-    /// cycles. Use `delegateOnClose(_:)` for automatic handling of retain cycles.
-    ///
-    /// Example:
-    ///
-    ///     socket.onClose() { [weak self] in
-    ///         self?.print("Socket Connection Close")
-    ///     }
-    ///
-    /// - parameter callback: Called when the Socket is closed
-    @discardableResult
-    public func onClose(callback: @escaping () -> Void) -> String {
-        var delegated = Delegated<Void, Void>()
-        delegated.manuallyDelegate(with: callback)
-
-        return self.append(callback: delegated, to: &self.stateChangeCallbacks.close)
-    }
-
-    /// Registers callbacks for connection close events. Automatically handles
-    /// retain cycles. Use `onClose()` to handle yourself.
-    ///
-    /// Example:
-    ///
-    ///     socket.delegateOnClose(self) { self in
-    ///         self.print("Socket Connection Close")
-    ///     }
-    ///
-    /// - parameter owner: Class registering the callback. Usually `self`
-    /// - parameter callback: Called when the Socket is closed
-    @discardableResult
-    public func delegateOnClose<T: AnyObject>(to owner: T,
-                                              callback: @escaping ((T) -> Void)) -> String {
-        var delegated = Delegated<Void, Void>()
-        delegated.delegate(to: owner, with: callback)
-
-        return self.append(callback: delegated, to: &self.stateChangeCallbacks.close)
-    }
-
-
-    /// Registers callbacks for connection error events. Does not handle retain
-    /// cycles. Use `delegateOnError(to:)` for automatic handling of retain cycles.
-    ///
-    /// Example:
-    ///
-    ///     socket.onError() { [weak self] (error) in
-    ///         self?.print("Socket Connection Error", error)
-    ///     }
-    ///
-    /// - parameter callback: Called when the Socket errors
-    @discardableResult
-    public func onError(callback: @escaping (Error) -> Void) -> String {
-        var delegated = Delegated<Error, Void>()
-        delegated.manuallyDelegate(with: callback)
-
-        return self.append(callback: delegated, to: &self.stateChangeCallbacks.error)
-    }
-
-    /// Registers callbacks for connection error events. Automatically handles
-    /// retain cycles. Use `manualOnError()` to handle yourself.
-    ///
-    /// Example:
-    ///
-    ///     socket.delegateOnError(to: self) { (self, error) in
-    ///         self.print("Socket Connection Error", error)
-    ///     }
-    ///
-    /// - parameter owner: Class registering the callback. Usually `self`
-    /// - parameter callback: Called when the Socket errors
-    @discardableResult
-    public func delegateOnError<T: AnyObject>(to owner: T,
-                                              callback: @escaping ((T, Error) -> Void)) -> String {
-        var delegated = Delegated<Error, Void>()
-        delegated.delegate(to: owner, with: callback)
-
-        return self.append(callback: delegated, to: &self.stateChangeCallbacks.error)
-    }
-
-    /// Registers callbacks for connection message events. Does not handle
-    /// retain cycles. Use `delegateOnMessage(_to:)` for automatic handling of
-    /// retain cycles.
-    ///
-    /// Example:
-    ///
-    ///     socket.onMessage() { [weak self] (message) in
-    ///         self?.print("Socket Connection Message", message)
-    ///     }
-    ///
-    /// - parameter callback: Called when the Socket receives a message event
-    @discardableResult
-    public func onMessage(callback: @escaping (Message) -> Void) -> String {
-        var delegated = Delegated<Message, Void>()
-        delegated.manuallyDelegate(with: callback)
-
-        return self.append(callback: delegated, to: &self.stateChangeCallbacks.message)
-    }
-
-    /// Registers callbacks for connection message events. Automatically handles
-    /// retain cycles. Use `onMessage()` to handle yourself.
-    ///
-    /// Example:
-    ///
-    ///     socket.delegateOnMessage(self) { (self, message) in
-    ///         self.print("Socket Connection Message", message)
-    ///     }
-    ///
-    /// - parameter owner: Class registering the callback. Usually `self`
-    /// - parameter callback: Called when the Socket receives a message event
-    @discardableResult
-    public func delegateOnMessage<T: AnyObject>(to owner: T,
-                                                callback: @escaping ((T, Message) -> Void)) -> String {
-        var delegated = Delegated<Message, Void>()
-        delegated.delegate(to: owner, with: callback)
-
-        return self.append(callback: delegated, to: &self.stateChangeCallbacks.message)
-    }
-
-    private func append<T>(callback: T, to array: inout [(ref: String, callback: T)]) -> String {
-        let ref = makeRef()
-        array.append((ref, callback))
-        return ref
-    }
-
-    /// Releases all stored callback hooks (onError, onOpen, onClose, etc.) You should
-    /// call this method when you are finished when the Socket in order to release
-    /// any references held by the socket.
-    public func releaseCallbacks() {
-        self.stateChangeCallbacks.open.removeAll()
-        self.stateChangeCallbacks.close.removeAll()
-        self.stateChangeCallbacks.error.removeAll()
-        self.stateChangeCallbacks.message.removeAll()
-    }
-
-
 
     //----------------------------------------------------------------------
     // MARK: - Channel Initialization
@@ -498,7 +315,6 @@ public class Socket: PhoenixTransportDelegate {
     ///
     /// - parameter channel: Channel to remove
     public func remove(_ channel: Channel) async {
-        await self.off(channel.stateChangeRefs)
         var channels: [Channel] = []
 
         for storedChannel in self.channels {
@@ -509,18 +325,6 @@ public class Socket: PhoenixTransportDelegate {
 
         self.channels = channels
     }
-
-    /// Removes `onOpen`, `onClose`, `onError,` and `onMessage` registrations.
-    ///
-    ///
-    /// - Parameter refs: List of refs returned by calls to `onOpen`, `onClose`, etc
-    public func off(_ refs: [String]) {
-        self.stateChangeCallbacks.open = self.stateChangeCallbacks.open.filter({ !refs.contains($0.ref) })
-        self.stateChangeCallbacks.close = self.stateChangeCallbacks.close.filter({ !refs.contains($0.ref) })
-        self.stateChangeCallbacks.error = self.stateChangeCallbacks.error.filter({ !refs.contains($0.ref) })
-        self.stateChangeCallbacks.message = self.stateChangeCallbacks.message.filter({ !refs.contains($0.ref) })
-    }
-
 
     //----------------------------------------------------------------------
     // MARK: - Sending Data
@@ -592,7 +396,7 @@ public class Socket: PhoenixTransportDelegate {
         self.resetHeartbeat()
 
         // Inform all onOpen callbacks that the Socket has opened
-        self.stateChangeCallbacks.open.forEach({ $0.callback.call() })
+        self.socketOpened.send()
     }
 
     internal func onConnectionClosed(code: Int?) async {
@@ -610,7 +414,7 @@ public class Socket: PhoenixTransportDelegate {
             await self.reconnectTimer.scheduleTimeout()
         }
 
-        self.stateChangeCallbacks.close.forEach({ $0.callback.call() })
+        socketClosed.send()
     }
 
     internal func onConnectionError(_ error: Error) async {
@@ -620,7 +424,7 @@ public class Socket: PhoenixTransportDelegate {
         await self.triggerChannelError()
 
         // Inform any state callabcks of the error
-        self.stateChangeCallbacks.error.forEach({ $0.callback.call(error) })
+        socketErrored.send(error)
     }
 
     internal func onConnectionMessage(_ rawMessage: String) async {
@@ -649,7 +453,7 @@ public class Socket: PhoenixTransportDelegate {
         }
 
         // Inform all onMessage callbacks of the message
-        self.stateChangeCallbacks.message.forEach({ $0.callback.call(message) })
+        socketRecievedMessage.send(message)
     }
 
     /// Triggers an error event to all of the connected Channels
