@@ -46,7 +46,7 @@ public typealias PayloadClosure = () -> Payload?
 /// The `Socket` constructor takes the mount point of the socket,
 /// the authentication params, as well as options that can be found in
 /// the Socket docs, such as configuring the heartbeat.
-public class Socket: TransportProtocol {
+public class Socket {
 
     // ----------------------------------------------------------------------
     // MARK: - Public Attributes
@@ -73,7 +73,7 @@ public class Socket: TransportProtocol {
 
     /// The WebSocket transport. Default behavior is to provide a
     /// URLSessionWebsocketTask. See README for alternatives.
-    private let transport: ((URL) -> PhoenixTransport)
+    private let transport: ((URL) -> URLSessionTransportProtocol)
 
     /// Phoenix serializer version, defaults to "2.0.0"
     public let vsn: String
@@ -150,7 +150,7 @@ public class Socket: TransportProtocol {
     private var closeStatus: CloseStatus = .unknown
 
     /// The connection to the server
-    private var connection: PhoenixTransport?
+    private var connection: URLSessionTransportProtocol?
 
     // ----------------------------------------------------------------------
     // MARK: - Initialization
@@ -176,7 +176,7 @@ public class Socket: TransportProtocol {
     }
 
     public init(endPoint: String,
-                transport: @escaping ((URL) -> PhoenixTransport),
+                transport: @escaping ((URL) -> URLSessionTransportProtocol),
                 paramsClosure: PayloadClosure? = nil,
                 vsn: String = Defaults.vsn) {
         self.transport = transport
@@ -576,7 +576,9 @@ extension Socket {
          */
         self.connection?.disconnect(code: CloseCode.normal.rawValue, reason: reason)
     }
+}
 
+extension Socket: URLSessionTransportDelegate {
     // ----------------------------------------------------------------------
     // MARK: - TransportDelegate
     // ----------------------------------------------------------------------

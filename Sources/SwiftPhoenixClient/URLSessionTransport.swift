@@ -21,100 +21,6 @@
 import Foundation
 
 // ----------------------------------------------------------------------
-// MARK: - Transport Protocol
-// ----------------------------------------------------------------------
-/**
- Defines a `Socket`'s Transport layer.
- */
-// sourcery: AutoMockable
-public protocol PhoenixTransport {
-
-    /// The current `ReadyState` of the `Transport` layer
-    var readyState: TransportReadyState { get }
-
-    /// Delegate for the `Transport` layer
-    var delegate: TransportProtocol? { get set }
-
-    /**
-     Connect to the server
-     */
-    func connect()
-
-    /**
-     Disconnect from the server.
-
-     - Parameters:
-     - code: Status code defined by <ahref="http://tools.ietf.org/html/rfc6455#section-7.4">Section 7.4 of RFC 6455</a>.
-     - reason: Reason why the connection is closing. Optional.
-     */
-    func disconnect(code: Int, reason: String?)
-
-    /**
-     Sends a message to the server.
-
-     - Parameter data: Data to send.
-     */
-    func send(data: Data)
-}
-
-// ----------------------------------------------------------------------
-// MARK: - Transport Protocol
-// ----------------------------------------------------------------------
-/**
- Delegate to receive notifications of events that occur in the `Transport` layer
- */
-public protocol TransportProtocol {
-
-    /**
-     Notified when the `Transport` opens.
-     */
-    func onOpen()
-
-    /**
-     Notified when the `Transport` receives an error.
-
-     - Parameter error: Error from the underlying `Transport` implementation
-     */
-    func onError(error: Error) async
-
-    /**
-     Notified when the `Transport` receives a message from the server.
-
-     - Parameter message: Message received from the server
-     */
-    func onMessage(message: String) async
-
-    /**
-     Notified when the `Transport` closes.
-
-     - Parameter code: Code that was sent when the `Transport` closed
-     */
-    func onClose(code: Int) async
-}
-
-// ----------------------------------------------------------------------
-// MARK: - Transport Ready State Enum
-// ----------------------------------------------------------------------
-/**
- Available `ReadyState`s of a `Transport` layer.
- */
-public enum TransportReadyState {
-
-    /// The `Transport` is opening a connection to the server.
-    case connecting
-
-    /// The `Transport` is connected to the server.
-    case open
-
-    /// The `Transport` is closing the connection to the server.
-    case closing
-
-    /// The `Transport` has disconnected from the server.
-    case closed
-
-}
-
-// ----------------------------------------------------------------------
 // MARK: - Default Websocket Transport Implementation
 // ----------------------------------------------------------------------
 /**
@@ -127,7 +33,7 @@ public enum TransportReadyState {
  your own WebSocket library or implementation.
  */
 @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
-public class URLSessionTransport: NSObject, PhoenixTransport, URLSessionWebSocketDelegate {
+public class URLSessionTransport: NSObject, URLSessionTransportProtocol, URLSessionWebSocketDelegate {
 
     /// The URL to connect to
     internal let url: URL
@@ -180,7 +86,7 @@ public class URLSessionTransport: NSObject, PhoenixTransport, URLSessionWebSocke
 
     // MARK: - Transport
     public var readyState: TransportReadyState = .closed
-    public var delegate: TransportProtocol?
+    public var delegate: URLSessionTransportDelegate?
 
     public func connect() {
         // Set the trasport state as connecting

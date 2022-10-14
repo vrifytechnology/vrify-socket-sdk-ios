@@ -58,34 +58,5 @@ public class Defaults {
         return json
     }
 
-    public static let heartbeatQueue: DispatchQueue
-    = DispatchQueue(label: "com.phoenix.socket.heartbeat")
-}
-
-/// Represents the multiple states that a Channel can be in
-/// throughout it's lifecycle.
-public enum ChannelState: String {
-    case closed
-    case errored
-    case joined
-    case joining
-    case leaving
-}
-
-/// Represents the different events that can be sent through
-/// a channel regarding a Channel's lifecycle.
-public struct ChannelEvent {
-    public static let heartbeat = "heartbeat"
-    public static let join      = "phx_join"
-    public static let leave     = "phx_leave"
-    public static let reply     = "phx_reply"
-    public static let error     = "phx_error"
-    public static let close     = "phx_close"
-
-    static func isLifecyleEvent(_ event: String) -> Bool {
-        switch event {
-        case join, leave, reply, error, close: return true
-        default: return false
-        }
-    }
+    public static let heartbeatQueue = DispatchQueue(label: "com.phoenix.socket.heartbeat")
 }

@@ -615,7 +615,7 @@ class SocketMock: Socket {
     var underlyingCloseStatus: (CloseStatus)!
     var connectionSetCount: Int = 0
     var connectionDidGetSet: Bool { return connectionSetCount > 0 }
-    override var connection: PhoenixTransport? {
+    override var connection: URLSessionTransportProtocol? {
         didSet { connectionSetCount += 1 }
     }
 
@@ -631,8 +631,8 @@ class SocketMock: Socket {
 
     // MARK: - init
     // swiftlint:disable:next large_tuple
-    var initEndPointTransportParamsClosureReceivedArguments: (endPoint: String, transport: (URL) -> PhoenixTransport, paramsClosure: PayloadClosure?)?
-    var initEndPointTransportParamsClosureClosure: ((String, @escaping ((URL) -> PhoenixTransport), PayloadClosure?) -> Void)?
+    var initEndPointTransportParamsClosureReceivedArguments: (endPoint: String, transport: (URL) -> URLSessionTransportProtocol, paramsClosure: PayloadClosure?)?
+    var initEndPointTransportParamsClosureClosure: ((String, @escaping ((URL) -> URLSessionTransportProtocol), PayloadClosure?) -> Void)?
 
     // MARK: - deinit
 

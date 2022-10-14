@@ -10,13 +10,13 @@ import AppKit
 
 @testable import SwiftPhoenixClient
 
-class PhoenixTransportMock: TransportProtocol {
+class PhoenixTransportMock: URLSessionTransportDelegate {
     var readyState: TransportReadyState {
         get { return underlyingReadyState }
         set(value) { underlyingReadyState = value }
     }
     var underlyingReadyState: TransportReadyState!
-    var delegate: TransportProtocol?
+    var delegate: URLSessionTransportDelegate?
 
     // MARK: - connect
 
