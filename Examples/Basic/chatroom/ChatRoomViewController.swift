@@ -41,7 +41,6 @@ class ChatRoomViewController: UIViewController {
     // MARK: - Attributes
     private let username: String = "ChatRoom"
     private let socket = Socket("https://phxchat.herokuapp.com/socket/websocket")
-    //  private let socket = Socket(endPoint: "https://phxchat.herokuapp.com/socket/websocket", transport: { url in return StarscreamTransport(url: url) })
     private let topic: String = "room:lobby"
 
     private var lobbyChannel: Channel?
@@ -83,14 +82,15 @@ class ChatRoomViewController: UIViewController {
     }
 
     @IBAction func onSendButtonPressed(_ sender: Any) {
+        let payload = ["name": username, "message": messageInput.text!]
         Task {
             // Create and send the payload
-            let payload = ["name": username, "message": messageInput.text!]
-            await self.lobbyChannel?.createPush("shout", payload: payload, timeout: Defaults.timeoutInterval)
-        }
+            let push = await self.lobbyChannel?.createPush("shout", payload: payload, timeout: Defaults.timeoutInterval)
+            await push?.send()
 
-        // Clear the text intput
-        self.messageInput.text = ""
+            // Clear the text intput
+            self.messageInput.text = ""
+        }
     }
 
     // ----------------------------------------------------------------------
@@ -150,26 +150,32 @@ class ChatRoomViewController: UIViewController {
 
         // Setup the Channel to receive and send messages
         let channel = await socket.channel(topic, params: ["status": "joining"])
-        //    channel.rx
-        //      .on("shout")
-        //      .observeOn(MainScheduler.asyncInstance)
-        //      .subscribe( onNext: { (message) in
-        //        let payload = message.payload
-        //        guard
-        //          let name = payload["name"] as? String,
-        //          let message = payload["message"] as? String else { return }
-        //
-        //        let shout = Shout(name: name, message: message)
-        //        self.shouts.append(shout)
-        //
-        //        let indexPath = IndexPath(row: self.shouts.count - 1, section: 0)
-        //        self.tableView.reloadData() //reloadRows(at: [indexPath], with: .automatic)
-        //        self.tableView.scrollToRow(at: indexPath, at: .bottom, animated: true)
-        //      }).disposed(by: disposeBag)
 
-        // Now connect the socket and join the channel
-        self.lobbyChannel = channel
-        await self.lobbyChannel?
+        channel
+            .messagePublisher
+            .compactMap { $0 }
+            .filter { $0.event == "shout" }
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: {
+                if case let .failure(error) = $0 {
+                    print("Lobby Channel: messagePublisher failed with error \(error.localizedDescription)")
+                }
+            }, receiveValue: {
+                let payload = $0.payload
+                guard
+                    let name = payload["name"] as? String,
+                    let message = payload["message"] as? String else { return }
+
+                let shout = Shout(name: name, message: message)
+                self.shouts.append(shout)
+
+                self.tableView.reloadData()
+                let indexPath = IndexPath(row: self.shouts.count - 1, section: 0)
+                self.tableView.scrollToRow(at: indexPath, at: .bottom, animated: true)
+            })
+            .store(in: &cancellables)
+
+        await channel
             .join()
             .pushResponse
             .compactMap { $0 }
@@ -181,6 +187,9 @@ class ChatRoomViewController: UIViewController {
                 print("CHANNEL: rooms:lobby joined")
             })
             .store(in: &cancellables)
+
+        // Now connect the socket and join the channel
+        self.lobbyChannel = channel
         self.socket.connect()
     }
 

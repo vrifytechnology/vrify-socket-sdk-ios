@@ -46,7 +46,7 @@ public typealias PayloadClosure = () -> Payload?
 /// The `Socket` constructor takes the mount point of the socket,
 /// the authentication params, as well as options that can be found in
 /// the Socket docs, such as configuring the heartbeat.
-public class Socket: PhoenixTransportDelegate {
+public class Socket: TransportProtocol {
 
     // ----------------------------------------------------------------------
     // MARK: - Public Attributes

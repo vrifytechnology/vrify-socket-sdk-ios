@@ -19,10 +19,7 @@ import SwiftPhoenixClient
  For a more advanced example, see the ChatRoomViewController
  
  This example is intended to connect to a local chat server.
- 
- Setup
- 1. Select which Transpart is being tested.
- 
+
  Steps
  1. Connect the Socket
  2. Verify System pings come through
@@ -57,13 +54,7 @@ class BasicChatViewController: UIViewController {
     // MARK: - Variables
     let username: String = "Basic"
     var topic: String = "rooms:lobby"
-
-    // Test the URLSessionTransport
     let socket = Socket(endpoint)
-
-    // Test the StarscreamTransport
-    //  let socket = Socket(endPoint: endpoint, transport: { url in return StarscreamTransport(url: url) })
-
     var lobbyChannel: Channel!
 
     private var cancellables = Set<AnyCancellable>()
@@ -83,18 +74,18 @@ class BasicChatViewController: UIViewController {
             DispatchQueue.main.async {
                 self.connectButton.setTitle("Disconnect", for: .normal)
             }
-        }
+        }.store(in: &cancellables)
 
         socket.socketClosed.sink { _ in
             self.addText("Socket Closed")
             DispatchQueue.main.async {
                 self.connectButton.setTitle("Connect", for: .normal)
             }
-        }
+        }.store(in: &cancellables)
 
         socket.socketErrored.sink {
             self.addText("Socket Errored: " + $0.localizedDescription)
-        }
+        }.store(in: &cancellables)
 
         socket.logger = { msg in print("LOG:", msg) }
     }

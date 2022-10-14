@@ -30,10 +30,10 @@ import Foundation
 public protocol PhoenixTransport {
 
     /// The current `ReadyState` of the `Transport` layer
-    var readyState: PhoenixTransportReadyState { get }
+    var readyState: TransportReadyState { get }
 
     /// Delegate for the `Transport` layer
-    var delegate: PhoenixTransportDelegate? { get set }
+    var delegate: TransportProtocol? { get set }
 
     /**
      Connect to the server
@@ -44,7 +44,7 @@ public protocol PhoenixTransport {
      Disconnect from the server.
 
      - Parameters:
-     - code: Status code as defined by <ahref="http://tools.ietf.org/html/rfc6455#section-7.4">Section 7.4 of RFC 6455</a>.
+     - code: Status code defined by <ahref="http://tools.ietf.org/html/rfc6455#section-7.4">Section 7.4 of RFC 6455</a>.
      - reason: Reason why the connection is closing. Optional.
      */
     func disconnect(code: Int, reason: String?)
@@ -58,12 +58,12 @@ public protocol PhoenixTransport {
 }
 
 // ----------------------------------------------------------------------
-// MARK: - Transport Delegate Protocol
+// MARK: - Transport Protocol
 // ----------------------------------------------------------------------
 /**
  Delegate to receive notifications of events that occur in the `Transport` layer
  */
-public protocol PhoenixTransportDelegate {
+public protocol TransportProtocol {
 
     /**
      Notified when the `Transport` opens.
@@ -98,7 +98,7 @@ public protocol PhoenixTransportDelegate {
 /**
  Available `ReadyState`s of a `Transport` layer.
  */
-public enum PhoenixTransportReadyState {
+public enum TransportReadyState {
 
     /// The `Transport` is opening a connection to the server.
     case connecting
@@ -179,8 +179,8 @@ public class URLSessionTransport: NSObject, PhoenixTransport, URLSessionWebSocke
     }
 
     // MARK: - Transport
-    public var readyState: PhoenixTransportReadyState = .closed
-    public var delegate: PhoenixTransportDelegate?
+    public var readyState: TransportReadyState = .closed
+    public var delegate: TransportProtocol?
 
     public func connect() {
         // Set the trasport state as connecting

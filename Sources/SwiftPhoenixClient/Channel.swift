@@ -43,8 +43,6 @@ import Foundation
 ///         .receive("timeout") { payload in print("Networking issue...", payload) }
 ///
 
-import Foundation
-
 public actor Channel {
 
     /// The topic of the Channel. e.g. "rooms:friends"
