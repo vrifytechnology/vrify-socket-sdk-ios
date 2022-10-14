@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import Combine
 import SwiftPhoenixClient
 
 /*
@@ -65,6 +66,8 @@ class BasicChatViewController: UIViewController {
 
     var lobbyChannel: Channel!
 
+    private var cancellables = Set<AnyCancellable>()
+
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -75,22 +78,22 @@ class BasicChatViewController: UIViewController {
         // If you would prefer to handle them yourself, youcan use the same
         // methods without the `delegate` functions, just be sure you avoid
         // memory leakse with `[weak self]`
-        socket.delegateOnOpen(to: self) { (self) in
+        socket.socketOpened.sink { _ in
             self.addText("Socket Opened")
             DispatchQueue.main.async {
                 self.connectButton.setTitle("Disconnect", for: .normal)
             }
         }
 
-        socket.delegateOnClose(to: self) { (self) in
+        socket.socketClosed.sink { _ in
             self.addText("Socket Closed")
             DispatchQueue.main.async {
                 self.connectButton.setTitle("Connect", for: .normal)
             }
         }
 
-        socket.delegateOnError(to: self) { (self, error) in
-            self.addText("Socket Errored: " + error.localizedDescription)
+        socket.socketErrored.sink {
+            self.addText("Socket Errored: " + $0.localizedDescription)
         }
 
         socket.logger = { msg in print("LOG:", msg) }
@@ -131,14 +134,21 @@ class BasicChatViewController: UIViewController {
         let payload = ["user": username, "body": messageField.text!]
 
         Task {
-            await self.lobbyChannel
-                .push("new:msg", payload: payload)
-                .receive("ok") { (message) in
-                    print("success", message)
-                }
-                .receive("error") { (errorMessage) in
-                    print("error: ", errorMessage)
-                }
+            let push = await self.lobbyChannel.createPush("new:msg",
+                                                          payload: payload,
+                                                          timeout: Defaults.timeoutInterval)
+            push.pushResponse
+                .compactMap { $0 }
+                .sink(receiveCompletion: {
+                    if case let .failure(error) = $0 {
+                        print("error: ", error.localizedDescription)
+                    }
+                }, receiveValue: {
+                    print("success", $0)
+                })
+                .store(in: &cancellables)
+
+            await self.lobbyChannel.send(push)
         }
 
         messageField.text = ""
@@ -180,7 +190,7 @@ class BasicChatViewController: UIViewController {
 
     private func disconnectAndLeave() async {
         //     Be sure the leave the channel or call socket.remove(lobbyChannel)
-        await lobbyChannel.leave()
+        await lobbyChannel.leave(timeout: Defaults.timeoutInterval)
         socket.disconnect {
             self.addText("Socket Disconnected")
         }
@@ -188,31 +198,63 @@ class BasicChatViewController: UIViewController {
 
     private func connectAndJoin() async {
         let channel = await socket.channel(topic, params: ["status": "joining"])
-        await channel.delegateOn("join", to: self) { (self, _) in
-            self.addText("You joined the room.")
-        }
 
-        await channel.delegateOn("new:msg", to: self) { (self, message) in
-            let payload = message.payload
-            guard
-                let username = payload["user"],
-                let body = payload["body"] else { return }
-            let newMessage = "[\(username)] \(body)"
-            self.addText(newMessage)
-        }
+        channel
+            .messagePublisher
+            .filter { $0.event == "join" }
+            .sink(receiveCompletion: {
+                switch $0 {
+                case .failure(let error):
+                    self.addText("Failed to join channel: \(error)")
+                case .finished:
+                    self.addText("You joined the room.")
+                }
+            }, receiveValue: { _ in })
+            .store(in: &cancellables)
 
-        await channel.delegateOn("user:entered", to: self) { (self, _) in
-            self.addText("[anonymous entered]")
-        }
+        channel
+            .messagePublisher
+            .filter { $0.event == "new:msg" }
+            .sink(receiveCompletion: {
+                if case .failure(let error) = $0 {
+                    self.addText("Error waiting for new:msg - \(error)")
+                }
+            }, receiveValue: {
+                let payload = $0.payload
+                guard
+                    let username = payload["user"],
+                    let body = payload["body"] else { return }
+                let newMessage = "[\(username)] \(body)"
+                self.addText(newMessage)
+            })
+            .store(in: &cancellables)
+
+        channel
+            .messagePublisher
+            .filter { $0.event == "new:msg" }
+            .sink(receiveCompletion: {
+                if case .failure(let error) = $0 {
+                    self.addText("Error waiting for user:entered - \(error)")
+                }
+            }, receiveValue: { _ in
+                self.addText("[anonymous entered]")
+            })
+            .store(in: &cancellables)
 
         self.lobbyChannel = channel
         await self.lobbyChannel
             .join()
-            .delegateReceive("ok", to: self) { (self, _) in
+            .pushResponse
+            .compactMap { $0 }
+            .sink(receiveCompletion: {
+                if case let .failure(error) = $0 {
+                    self.addText("Failed to join lobby channel: \(error)")
+                }
+            }, receiveValue: { _ in
                 self.addText("Joined Channel")
-            }.delegateReceive("error", to: self) { (self, message) in
-                self.addText("Failed to join channel: \(message.payload)")
-            }
+            })
+            .store(in: &cancellables)
+
         self.socket.connect()
 
     }

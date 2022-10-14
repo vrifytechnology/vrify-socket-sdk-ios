@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import Combine
 import SwiftPhoenixClient
 
 struct Shout {
@@ -50,7 +51,7 @@ class ChatRoomViewController: UIViewController {
     private var didbecomeActiveObservervation: NSObjectProtocol?
     private var willResignActiveObservervation: NSObjectProtocol?
 
-    //  private let disposeBag = DisposeBag()
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -85,7 +86,7 @@ class ChatRoomViewController: UIViewController {
         Task {
             // Create and send the payload
             let payload = ["name": username, "message": messageInput.text!]
-            await self.lobbyChannel?.push("shout", payload: payload)
+            await self.lobbyChannel?.createPush("shout", payload: payload, timeout: Defaults.timeoutInterval)
         }
 
         // Clear the text intput
@@ -130,18 +131,20 @@ class ChatRoomViewController: UIViewController {
 
     private func connectToChat() async {
         // Setup the socket to receive open/close events
-        socket.delegateOnOpen(to: self) { (_) in
+        socket.socketOpened.sink { _ in
             print("CHAT ROOM: Socket Opened")
         }
+        .store(in: &cancellables)
 
-        socket.delegateOnClose(to: self) { (_) in
+        socket.socketClosed.sink { _ in
             print("CHAT ROOM: Socket Closed")
-
         }
+        .store(in: &cancellables)
 
-        socket.delegateOnError(to: self) { (_, error) in
-            print("CHAT ROOM: Socket Errored. \(error)")
+        socket.socketErrored.sink { _ in
+            print("CHAT ROOM: Socket Errored")
         }
+        .store(in: &cancellables)
 
         socket.logger = { msg in print("LOG:", msg) }
 
@@ -168,20 +171,23 @@ class ChatRoomViewController: UIViewController {
         self.lobbyChannel = channel
         await self.lobbyChannel?
             .join()
-            .delegateReceive("ok", to: self, callback: { (_, _) in
+            .pushResponse
+            .compactMap { $0 }
+            .sink(receiveCompletion: {
+                if case let .failure(error) = $0 {
+                    print("CHANNEL: rooms:lobby failed to join. \(error.localizedDescription)")
+                }
+            }, receiveValue: { _ in
                 print("CHANNEL: rooms:lobby joined")
             })
-            .delegateReceive("error", to: self, callback: { (_, message) in
-                print("CHANNEL: rooms:lobby failed to join. \(message.payload)")
-            })
-
+            .store(in: &cancellables)
         self.socket.connect()
     }
 
     private func disconnectFromChat() {
         Task {
             if let channel = self.lobbyChannel {
-                await channel.leave()
+                await channel.leave(timeout: Defaults.timeoutInterval)
                 await self.socket.remove(channel)
             }
 
