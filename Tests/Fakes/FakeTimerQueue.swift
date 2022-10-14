@@ -19,8 +19,6 @@
 // THE SOFTWARE.
 
 import Foundation
-
-import Foundation
 @testable import SwiftPhoenixClient
 
 /**

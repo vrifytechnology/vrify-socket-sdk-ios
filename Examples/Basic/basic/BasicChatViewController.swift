@@ -188,9 +188,27 @@ class BasicChatViewController: UIViewController {
     }
 
     private func connectAndJoin() async {
-        let channel = await socket.channel(topic, params: ["status": "joining"])
+        lobbyChannel = await socket.channel(topic, params: ["status": "joining"])
+        createLobbyChannelEventHandlers()
+        await lobbyChannel?
+            .join()
+            .pushResponse
+            .compactMap { $0 }
+            .sink(receiveCompletion: {
+                if case let .failure(error) = $0 {
+                    self.addText("Failed to join lobby channel: \(error)")
+                }
+            }, receiveValue: { _ in
+                self.addText("Joined Channel")
+            })
+            .store(in: &cancellables)
 
-        channel
+        self.socket.connect()
+
+    }
+
+    private func createLobbyChannelEventHandlers() {
+        lobbyChannel?
             .messagePublisher
             .filter { $0.event == "join" }
             .sink(receiveCompletion: {
@@ -203,7 +221,7 @@ class BasicChatViewController: UIViewController {
             }, receiveValue: { _ in })
             .store(in: &cancellables)
 
-        channel
+        lobbyChannel?
             .messagePublisher
             .filter { $0.event == "new:msg" }
             .sink(receiveCompletion: {
@@ -220,7 +238,7 @@ class BasicChatViewController: UIViewController {
             })
             .store(in: &cancellables)
 
-        channel
+        lobbyChannel?
             .messagePublisher
             .filter { $0.event == "new:msg" }
             .sink(receiveCompletion: {
@@ -231,23 +249,6 @@ class BasicChatViewController: UIViewController {
                 self.addText("[anonymous entered]")
             })
             .store(in: &cancellables)
-
-        self.lobbyChannel = channel
-        await self.lobbyChannel
-            .join()
-            .pushResponse
-            .compactMap { $0 }
-            .sink(receiveCompletion: {
-                if case let .failure(error) = $0 {
-                    self.addText("Failed to join lobby channel: \(error)")
-                }
-            }, receiveValue: { _ in
-                self.addText("Joined Channel")
-            })
-            .store(in: &cancellables)
-
-        self.socket.connect()
-
     }
 
     private func addText(_ text: String) {

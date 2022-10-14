@@ -128,29 +128,29 @@ public class Socket: TransportProtocol {
     // MARK: - Private Attributes
     // ----------------------------------------------------------------------
     /// Collection on channels created for the Socket
-    var channels: [Channel] = []
+    private var channels: [Channel] = []
 
     /// Buffers messages that need to be sent once the socket has connected. It is an array
     /// of tuples, with the ref of the message to send and the callback that will send the message.
-    var sendBuffer: [(ref: String?, callback: () throws -> Void)] = []
+    private var sendBuffer: [(ref: String?, callback: () throws -> Void)] = []
 
     /// Ref counter for messages
-    var ref: UInt64 = UInt64.min // 0 (max: 18,446,744,073,709,551,615)
+    private var ref: UInt64 = UInt64.min // 0 (max: 18,446,744,073,709,551,615)
 
     /// Timer that triggers sending new Heartbeat messages
-    var heartbeatTimer: HeartbeatTimer?
+    private var heartbeatTimer: HeartbeatTimer?
 
     /// Ref counter for the last heartbeat that was sent
-    var pendingHeartbeatRef: String?
+    private var pendingHeartbeatRef: String?
 
     /// Timer to use when attempting to reconnect
-    var reconnectTimer: TimeoutTimer
+    private var reconnectTimer: TimeoutTimer
 
     /// Close status
-    var closeStatus: CloseStatus = .unknown
+    private var closeStatus: CloseStatus = .unknown
 
     /// The connection to the server
-    var connection: PhoenixTransport?
+    private var connection: PhoenixTransport?
 
     // ----------------------------------------------------------------------
     // MARK: - Initialization
@@ -202,7 +202,9 @@ public class Socket: TransportProtocol {
     deinit {
         reconnectTimer.reset()
     }
+}
 
+extension Socket {
     // ----------------------------------------------------------------------
     // MARK: - Public
     // ----------------------------------------------------------------------
@@ -310,10 +312,8 @@ public class Socket: TransportProtocol {
     public func remove(_ channel: Channel) async {
         var channels: [Channel] = []
 
-        for storedChannel in self.channels {
-            if await storedChannel.joinRef != channel.joinRef {
-                channels.append(storedChannel)
-            }
+        for storedChannel in self.channels where await storedChannel.joinRef != channel.joinRef {
+            channels.append(storedChannel)
         }
 
         self.channels = channels
@@ -440,10 +440,8 @@ public class Socket: TransportProtocol {
         }
 
         // Dispatch the message to all channels that belong to the topic
-        for channel in self.channels {
-            if await channel.isMember(message) {
-                await channel.trigger(message)
-            }
+        for channel in self.channels where await channel.isMember(message) {
+            await channel.trigger(message)
         }
 
         // Inform all onMessage callbacks of the message
@@ -545,7 +543,7 @@ public class Socket: TransportProtocol {
         // If there is a pending heartbeat ref, then the last heartbeat was
         // never acknowledged by the server. Close the connection and attempt
         // to reconnect.
-        if let _ = self.pendingHeartbeatRef {
+        if self.pendingHeartbeatRef != nil {
             self.pendingHeartbeatRef = nil
             self.logItems("transport",
                           "heartbeat timeout. Attempting to re-establish connection")

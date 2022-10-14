@@ -105,16 +105,23 @@ public actor Channel {
                              payload: params,
                              timeout: socket.timeout)
         self.setupDelegates()
-        self.setupJoinPushSinks()
+        self.setupJoinPushHandlers()
+        self.setupChannelEventHandlers()
     }
 
+    deinit {
+        rejoinTimer.reset()
+    }
+}
+
+private extension Channel {
     func setupDelegates() {
         // Setup Timer delgation
         self.rejoinTimer.callback = { [weak self] in
-                Task { [weak self] in
-                    if await self?.socket?.isConnected == true { await self?.rejoin() }
-                }
+            Task { [weak self] in
+                if await self?.socket?.isConnected == true { await self?.rejoin() }
             }
+        }
 
         self.rejoinTimer.timerCalculation = { [weak self] tries -> TimeInterval in
             return await self?.socket?.rejoinAfter(tries) ?? 5.0
@@ -135,7 +142,7 @@ public actor Channel {
         .store(in: &cancellables)
     }
 
-    func setupJoinPushSinks() {
+    func setupJoinPushHandlers() {
         /// Handle when a response is received after join()
         joinPush
             .pushResponse
@@ -166,7 +173,9 @@ public actor Channel {
                 }
             })
             .store(in: &cancellables)
+    }
 
+    func setupChannelEventHandlers() {
         /// Perfom when the Channel has been closed
         messagePublisher
             .filter { $0.event == ChannelEvent.close }
@@ -183,7 +192,8 @@ public actor Channel {
 
                     // Log that the channel was left
                     await self?.socket?.logItems("channel",
-                                                 "close topic: \(self?.topic) joinRef: \(await self?.joinRef ?? "nil")")
+                                                 "close topic: \(String(describing: self?.topic))",
+                                                 "joinRef: \(await self?.joinRef ?? "nil")")
 
                     // Mark the channel as closed and remove it from the socket
                     await self?.update(state: .closed)
@@ -199,14 +209,15 @@ public actor Channel {
             .sink(receiveCompletion: { [weak self] in
                 if case let .failure(error) = $0 {
                     Task { [weak self] in
-                        await self?.socket?.logItems("presence", "Push failed due to error: \(error)")
+                        await self?.socket?.logItems("channel", "Push failed due to error: \(error)")
                     }
                 }
             }, receiveValue: { [weak self] message in
                 Task { [weak self] in
                     // Log that the channel received an error
                     await self?.socket?.logItems("channel",
-                                                 "error topic: \(self?.topic) joinRef: \(await self?.joinRef ?? "nil") message: \(message)")
+                                                 "error topic: \(String(describing: self?.topic))",
+                                                 "joinRef: \(await self?.joinRef ?? "nil") message: \(message)")
 
                     // If error was received while joining, then reset the Push
                     if await (self?.isJoining ?? false) {
@@ -285,17 +296,15 @@ public actor Channel {
             }
         }
     }
+}
 
-    deinit {
-        rejoinTimer.reset()
-    }
-
+public extension Channel {
     /// Joins the channel
     ///
     /// - parameter timeout: Optional. Defaults to Channel's timeout
     /// - return: Push event
     @discardableResult
-    public func join(timeout: TimeInterval? = nil) async -> Push {
+    func join(timeout: TimeInterval? = nil) async -> Push {
         guard !joinedOnce else {
             fatalError("tried to join multiple times. 'join' "
                        + "can only be called a single time per channel instance")
@@ -319,10 +328,10 @@ public actor Channel {
     /// - parameter payload: Payload to push
     /// - parameter timeout: Timeout. A timeout of 0.0 will never result in a timeout Error.
     @discardableResult
-    public func createPush(_ event: String,
-                           payload: Payload,
-                           timeout: TimeInterval) -> Push {
-        guard joinedOnce else { fatalError("Tried to push \(event) to \(self.topic) before joining. Use channel.join() before pushing events") }
+    func createPush(_ event: String,
+                    payload: Payload,
+                    timeout: TimeInterval) -> Push {
+        guard joinedOnce else { fatalError("Pushed \(event) to \(self.topic) before joining. See: channel.join()") }
 
         return Push(channel: self,
                     event: event,
@@ -337,8 +346,8 @@ public actor Channel {
     ///     channel.send(push)
     ///
     /// - parameter push: Push object to send over the Socket
-    public func send(_ push: Push) async {
-        guard joinedOnce else { fatalError("Tried to push \(push.event) to \(self.topic) before joining. Use channel.join() before pushing events") }
+    func send(_ push: Push) async {
+        guard joinedOnce else { fatalError("Pushed \(push.event) to \(self.topic) before joining. See: join()") }
 
         if canPush {
             await push.send()
@@ -365,7 +374,7 @@ public actor Channel {
     /// - parameter timeout: Optional timeout
     /// - return: Push that can add receive hooks
     @discardableResult
-    public func leave(timeout: TimeInterval) async -> Push {
+    func leave(timeout: TimeInterval) async -> Push {
         // If attempting a rejoin during a leave, then reset, cancelling the rejoin
         self.rejoinTimer.reset()
 
@@ -408,16 +417,15 @@ public actor Channel {
         return leavePush
     }
 
-    private func handleLeavePush() {
-        Task { [weak self] in
-            guard let channel = self else { return }
-            await channel.socket?.logItems("channel", "leave \(channel.topic)")
+    private func handleLeavePush() async {
+        socket?.logItems("channel", "leave \(topic)")
 
-            // Triggers onClose() hooks
-            await channel.trigger(event: ChannelEvent.close, payload: ["reason": "leave"])
-        }
+        // Triggers onClose() hooks
+        trigger(event: ChannelEvent.close, payload: ["reason": "leave"])
     }
+}
 
+extension Channel {
     // ----------------------------------------------------------------------
     // MARK: - Internal
     // ----------------------------------------------------------------------
@@ -432,7 +440,11 @@ public actor Channel {
             ChannelEvent.isLifecyleEvent(message.event)
         else { return true }
 
-        self.socket?.logItems("channel", "dropping outdated message", message.topic, message.event, message.rawPayload, safeJoinRef)
+        self.socket?.logItems("channel", "dropping outdated message",
+                              message.topic,
+                              message.event,
+                              message.rawPayload,
+                              safeJoinRef)
         return false
     }
 

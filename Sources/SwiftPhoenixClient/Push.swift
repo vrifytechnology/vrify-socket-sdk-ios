@@ -109,7 +109,11 @@ extension Push {
         self.ref = ref
         self.refEvent = refEvent
 
-        timeout == 0 ? setupMessageCancellable(channel, ref) : setupTimeoutableMessageCancellable(channel, ref)
+        if timeout == 0 {
+            setupMessageCancellable(channel, ref)
+        } else {
+            setupTimeoutableMessageCancellable(channel, ref)
+        }
     }
 
     func setupMessageCancellable(_ channel: Channel, _ ref: String) {

@@ -220,14 +220,14 @@ public final class Presence {
         self.caller = Caller()
 
         Task {
-            await setupDelegates(opts)
+            await setupStateEventHandler(opts)
+            await setupDiffEventHandler(opts)
         }
     }
 
-    private func setupDelegates(_ opts: Options) async {
-        guard // Do not subscribe to events if they were not provided
-            let stateEvent = opts.events[.state],
-            let diffEvent = opts.events[.diff] else { return }
+    private func setupStateEventHandler(_ opts: Options) async {
+        // Do not subscribe to events if they were not provided
+        guard let stateEvent = opts.events[.state] else { return }
 
         self.channel?.messagePublisher
             .filter { $0.event == stateEvent }
@@ -260,6 +260,11 @@ public final class Presence {
                 }
             })
             .store(in: &cancellables)
+    }
+
+    private func setupDiffEventHandler(_ opts: Options) async {
+         // Do not subscribe to events if they were not provided
+        guard let diffEvent = opts.events[.diff] else { return }
 
         self.channel?.messagePublisher
             .filter { $0.event == diffEvent }

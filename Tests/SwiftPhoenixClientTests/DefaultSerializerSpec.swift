@@ -16,7 +16,8 @@ class DefaultSerializerSpec: QuickSpec {
       it("converts dictionary to Data and back to Message", closure: {
         let body: [Any] = ["join_ref", "ref", "topic", "event", ["user_id": "abc123"]]
         let data = Defaults.encode(body)
-        expect(String(data: data, encoding: .utf8)).to(equal("[\"join_ref\",\"ref\",\"topic\",\"event\",{\"user_id\":\"abc123\"}]"))
+        expect(String(data: data,
+                      encoding: .utf8)).to(equal("[\"join_ref\",\"ref\",\"topic\",\"event\",{\"user_id\":\"abc123\"}]"))
 
         let json = Defaults.decode(data) as? [Any]
 

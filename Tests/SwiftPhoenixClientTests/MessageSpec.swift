@@ -29,7 +29,10 @@ class MessageSpec: QuickSpec {
       }
 
       it("parses a reply") {
-        let json: [Any] = ["2", "6", "my-topic", "phx_reply", ["response": ["user": "James S.", "message": "This is a test"], "status": "ok"]]
+        let json: [Any] = ["2", "6",
+                           "my-topic",
+                           "phx_reply",
+                           ["response": ["user": "James S.", "message": "This is a test"], "status": "ok"]]
 
         let message = Message(json: json)
         expect(message?.ref).to(equal("6"))
