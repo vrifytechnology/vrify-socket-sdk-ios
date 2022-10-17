@@ -11,9 +11,12 @@ import XCTest
 class DefaultSerializerTests: XCTestCase {
     func testEncodeDecode() {
         let body: [Any] = ["join_ref", "ref", "topic", "event", ["user_id": "abc123"]]
-        let data = Defaults.encode(body)
-        expect(String(data: data,
-                      encoding: .utf8)).to(equal("[\"join_ref\",\"ref\",\"topic\",\"event\",{\"user_id\":\"abc123\"}]"))
+        guard let data = try? Defaults.encode(body) else {
+            XCTFail("Failed to decode JSON")
+            return
+        }
+        let expectedDecode = "[\"join_ref\",\"ref\",\"topic\",\"event\",{\"user_id\":\"abc123\"}]"
+        XCTAssert(String(data: data, encoding: .utf8) == expectedDecode)
 
         let json = Defaults.decode(data) as? [Any]
 

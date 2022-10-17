@@ -127,30 +127,30 @@ public class Socket {
     // ----------------------------------------------------------------------
     // MARK: - Private Attributes
     // ----------------------------------------------------------------------
-    /// Collection on channels created for the Socket
-    private var channels: [Channel] = []
+    /// Collection of channels created for the Socket
+    internal var channels: [Channel] = []
 
     /// Buffers messages that need to be sent once the socket has connected. It is an array
     /// of tuples, with the ref of the message to send and the callback that will send the message.
-    private var sendBuffer: [(ref: String?, callback: () throws -> Void)] = []
+    internal var sendBuffer: [(ref: String?, callback: () throws -> Void)] = []
 
     /// Ref counter for messages
-    private var ref: UInt64 = UInt64.min // 0 (max: 18,446,744,073,709,551,615)
+    internal var ref: UInt64 = UInt64.min // 0 (max: 18,446,744,073,709,551,615)
 
     /// Timer that triggers sending new Heartbeat messages
     private var heartbeatTimer: HeartbeatTimer?
 
     /// Ref counter for the last heartbeat that was sent
-    private var pendingHeartbeatRef: String?
+    internal var pendingHeartbeatRef: String?
 
     /// Timer to use when attempting to reconnect
-    private var reconnectTimer: TimeoutTimer
+    internal var reconnectTimer: TimeoutTimer
 
     /// Close status
-    private var closeStatus: CloseStatus = .unknown
+    internal var closeStatus: CloseStatus = .unknown
 
     /// The connection to the server
-    private var connection: URLSessionTransportProtocol?
+    internal var connection: URLSessionTransportProtocol?
 
     // ----------------------------------------------------------------------
     // MARK: - Initialization
@@ -201,6 +201,47 @@ public class Socket {
 
     deinit {
         reconnectTimer.reset()
+    }
+
+    // ----------------------------------------------------------------------
+    // MARK: - Public Overrideable API
+    // ----------------------------------------------------------------------
+
+    // ----------------------------------------------------------------------
+    // MARK: - Sending Data
+    // ----------------------------------------------------------------------
+    /// Sends data through the Socket. This method is internal. Instead, you
+    /// should call `push(_:, payload:, timeout:)` on the Channel you are
+    /// sending an event to.
+    ///
+    /// - parameter topic:
+    /// - parameter event:
+    /// - parameter payload:
+    /// - parameter ref: Optional. Defaults to nil
+    /// - parameter joinRef: Optional. Defaults to nil
+    internal func push(topic: String,
+                       event: String,
+                       payload: Payload,
+                       ref: String? = nil,
+                       joinRef: String? = nil) {
+
+        let callback: (() throws -> Void) = {
+            let body: [Any?] = [joinRef, ref, topic, event, payload]
+            let data = try self.encode(body)
+
+            self.logItems("push", "Sending \(String(data: data, encoding: String.Encoding.utf8) ?? "")" )
+
+            self.connection?.send(data: data)
+        }
+
+        /// If the socket is connected, then execute the callback immediately.
+        if isConnected {
+            try? callback()
+        } else {
+            /// If the socket is not connected, add the push to a buffer which will
+            /// be sent immediately upon connection.
+            self.sendBuffer.append((ref: ref, callback: callback))
+        }
     }
 }
 
@@ -317,43 +358,6 @@ extension Socket {
         }
 
         self.channels = channels
-    }
-
-    // ----------------------------------------------------------------------
-    // MARK: - Sending Data
-    // ----------------------------------------------------------------------
-    /// Sends data through the Socket. This method is internal. Instead, you
-    /// should call `push(_:, payload:, timeout:)` on the Channel you are
-    /// sending an event to.
-    ///
-    /// - parameter topic:
-    /// - parameter event:
-    /// - parameter payload:
-    /// - parameter ref: Optional. Defaults to nil
-    /// - parameter joinRef: Optional. Defaults to nil
-    internal func push(topic: String,
-                       event: String,
-                       payload: Payload,
-                       ref: String? = nil,
-                       joinRef: String? = nil) {
-
-        let callback: (() throws -> Void) = {
-            let body: [Any?] = [joinRef, ref, topic, event, payload]
-            let data = try self.encode(body)
-
-            self.logItems("push", "Sending \(String(data: data, encoding: String.Encoding.utf8) ?? "")" )
-
-            self.connection?.send(data: data)
-        }
-
-        /// If the socket is connected, then execute the callback immediately.
-        if isConnected {
-            try? callback()
-        } else {
-            /// If the socket is not connected, add the push to a buffer which will
-            /// be sent immediately upon connection.
-            self.sendBuffer.append((ref: ref, callback: callback))
-        }
     }
 
     /// - return: the next message ref, accounting for overflows
@@ -489,7 +493,6 @@ extension Socket {
 
             // append 'websocket' to the path
             urlComponents.path.append("websocket")
-
         }
 
         urlComponents.queryItems = [URLQueryItem(name: "vsn", value: vsn)]

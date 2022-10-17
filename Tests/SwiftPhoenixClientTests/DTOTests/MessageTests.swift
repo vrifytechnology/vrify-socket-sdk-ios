@@ -10,7 +10,6 @@ import XCTest
 @testable import SwiftPhoenixClient
 
 class MessageTests: XCTestCase {
-
     func testJsonParsingOfValidMessage() {
         let json: [Any] = ["2", "6", "my-topic", "update", ["user": "James S.", "message": "This is a test"]]
 

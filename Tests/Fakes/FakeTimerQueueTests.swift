@@ -18,29 +18,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-import Quick
-import Nimble
+import XCTest
 @testable import SwiftPhoenixClient
 
 /// Tests the FakeTimerQueue that is used in all other tests to verify that
-/// the fake timer is behaving as expected in all tests to prevent false
+/// the fake timer is behaving as XCTAsserted in all tests to prevent false
 /// negatives or positives when writing tests
-class FakeTimerQueueSpec: QuickSpec {
+class FakeTimerQueueTests: XCTestCase {
+    func testReset() {
+        let queue = FakeTimerQueue()
 
-  override func spec() {
-
-    var queue: FakeTimerQueue!
-
-    beforeEach {
-      queue = FakeTimerQueue()
-    }
-
-    afterEach {
-      queue.reset()
-    }
-
-    describe("reset") {
-      it("resets the queue", closure: {
         var task100msCalled = false
         var task200msCalled = false
         var task300msCalled = false
@@ -50,20 +37,19 @@ class FakeTimerQueueSpec: QuickSpec {
         queue.queue(timeInterval: 0.3, execute: { task300msCalled = true })
 
         queue.tick(0.250)
-        expect(queue.tickTime).to(equal(0.250))
-        expect(queue.workItems).to(haveCount(1))
-        expect(task100msCalled).to(beTrue())
-        expect(task200msCalled).to(beTrue())
-        expect(task300msCalled).to(beFalse())
+        XCTAssert(queue.tickTime == 0.250)
+        XCTAssert(queue.workItems.count == 1)
+        XCTAssert(task100msCalled)
+        XCTAssert(task200msCalled)
+        XCTAssertFalse(task300msCalled)
 
         queue.reset()
-        expect(queue.tickTime).to(equal(0))
-        expect(queue.workItems).to(beEmpty())
-      })
+        XCTAssert(queue.tickTime == 0)
+        XCTAssert(queue.workItems.isEmpty)
     }
 
-    describe("triggers") {
-      it("triggers work that is passed due", closure: {
+    func testTriggers() {
+        let queue = FakeTimerQueue()
         var task100msCalled = false
         var task200msCalled = false
         var task300msCalled = false
@@ -73,19 +59,20 @@ class FakeTimerQueueSpec: QuickSpec {
         queue.queue(timeInterval: 0.3, execute: { task300msCalled = true })
 
         queue.tick(0.100)
-        expect(queue.tickTime).to(equal(0.100))
-        expect(task100msCalled).to(beTrue())
+        XCTAssert(queue.tickTime == 0.100)
+        XCTAssert(task100msCalled)
 
         queue.tick(0.100)
-        expect(queue.tickTime).to(equal(0.200))
-        expect(task200msCalled).to(beTrue())
+        XCTAssert(queue.tickTime == 0.200)
+        XCTAssert(task200msCalled)
 
         queue.tick(0.050)
-        expect(queue.tickTime).to(equal(0.250))
-        expect(task300msCalled).to(beFalse())
-      })
+        XCTAssert(queue.tickTime == 0.250)
+        XCTAssertFalse(task300msCalled)
+    }
 
-      it("triggers all work that is passed due", closure: {
+    func testPassedDueTriggers() {
+        let queue = FakeTimerQueue()
         var task100msCalled = false
         var task200msCalled = false
         var task300msCalled = false
@@ -95,61 +82,62 @@ class FakeTimerQueueSpec: QuickSpec {
         queue.queue(timeInterval: 0.3, execute: { task300msCalled = true })
 
         queue.tick(0.250)
-        expect(queue.tickTime).to(equal(0.250))
-        expect(queue.workItems).to(haveCount(1))
-        expect(task100msCalled).to(beTrue())
-        expect(task200msCalled).to(beTrue())
-        expect(task300msCalled).to(beFalse())
-      })
+        XCTAssert(queue.tickTime == 0.250)
+        XCTAssert(queue.workItems.count == 1)
+        XCTAssert(task100msCalled)
+        XCTAssert(task200msCalled)
+        XCTAssertFalse(task300msCalled)
+    }
 
-      it("triggers work that is scheduled for a time that is after tick", closure: {
+    // triggers work that is scheduled for a time that is after tick
+    func testTriggersWorkAfterTick() {
+        let queue = FakeTimerQueue()
         var task100msCalled = false
         var task200msCalled = false
         var task300msCalled = false
 
         queue.queue(timeInterval: 0.1, execute: {
-          task100msCalled = true
+            task100msCalled = true
 
-          queue.queue(timeInterval: 0.1, execute: {
-            task200msCalled = true
-          })
-
+            queue.queue(timeInterval: 0.1, execute: {
+                task200msCalled = true
+            })
         })
 
         queue.queue(timeInterval: 0.3, execute: { task300msCalled = true })
 
         queue.tick(0.250)
-        expect(queue.tickTime).to(equal(0.250))
-        expect(task100msCalled).to(beTrue())
-        expect(task200msCalled).to(beTrue())
-        expect(task300msCalled).to(beFalse())
-      })
+        XCTAssert(queue.tickTime == 0.250)
+        XCTAssert(task100msCalled)
+        XCTAssert(task200msCalled)
+        XCTAssertFalse(task300msCalled)
+    }
 
-      it("does not triggers nested work that is scheduled outside of the tick", closure: {
+    // does not triggers nested work that is scheduled outside of the tick
+    func testNoTriggersOfNestedWorkOutsideTicks() {
+        let queue = FakeTimerQueue()
         var task100msCalled = false
         var task200msCalled = false
         var task300msCalled = false
 
         queue.queue(timeInterval: 0.1, execute: {
-          task100msCalled = true
-
-          queue.queue(timeInterval: 0.1, execute: {
-            task200msCalled = true
+            task100msCalled = true
 
             queue.queue(timeInterval: 0.1, execute: {
-              task300msCalled = true
-            })
+                task200msCalled = true
 
-          })
+                queue.queue(timeInterval: 0.1, execute: {
+                    task300msCalled = true
+                })
+
+            })
 
         })
 
         queue.tick(0.250)
-        expect(queue.tickTime).to(equal(0.250))
-        expect(task100msCalled).to(beTrue())
-        expect(task200msCalled).to(beTrue())
-        expect(task300msCalled).to(beFalse())
-      })
+        XCTAssert(queue.tickTime == 0.250)
+        XCTAssert(task100msCalled)
+        XCTAssert(task200msCalled)
+        XCTAssertFalse(task300msCalled)
     }
-  }
 }

@@ -43,8 +43,7 @@ import Foundation
 ///         .receive("timeout") { payload in print("Networking issue...", payload) }
 ///
 
-public actor Channel {
-
+public actor Channel: ChannelProtocol {
     /// The topic of the Channel. e.g. "rooms:friends"
     public nonisolated let topic: String
 

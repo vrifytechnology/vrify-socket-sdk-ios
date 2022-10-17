@@ -10,17 +10,16 @@ import XCTest
 @testable import SwiftPhoenixClient
 
 class HeartbeatTimerTests: XCTestCase {
-
     func testHeartbeatTimerIsValid() {
         let queue = DispatchQueue(label: "heartbeat.timer.isvalid")
         let timer = HeartbeatTimer(timeInterval: 10, queue: queue)
 
         XCTAssertFalse(timer.isValid)
 
-        timer.start { _ in }
+        timer.start { }
         XCTAssert(timer.isValid)
 
-        timer.start { _ in }
+        timer.start { }
         timer.stop()
         XCTAssertFalse(timer.isValid)
     }
@@ -38,19 +37,20 @@ class HeartbeatTimerTests: XCTestCase {
     }
 
     func testHeartbeatTimerNotFiringAfterStop() {
-        let queue = DispatchQueue(label: "heartbeat.timer.firing")
+        let queue = DispatchQueue(label: "heartbeat.timer.notfiring")
         let timer = HeartbeatTimer(timeInterval: 10, queue: queue)
 
         var timerCalled = 0
         timer.start { timerCalled += 1 }
         XCTAssert(timerCalled == 0)
-        
+
         timer.stop()
         timer.fire()
         XCTAssert(timerCalled == 0)
     }
 
     func testHeartbeatTimerEquatable() {
+        let queue = DispatchQueue(label: "heartbeat.timer.timeequatable")
         let timerA = HeartbeatTimer(timeInterval: 10, queue: queue)
         let timerB = HeartbeatTimer(timeInterval: 10, queue: queue)
 

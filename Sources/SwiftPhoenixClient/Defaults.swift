@@ -20,7 +20,7 @@
 
 import Foundation
 
-/// A collection of default values and behaviors used accross the Client
+/// A collection of default values and behaviors used across the Client
 public class Defaults {
 
     /// Default timeout when sending messages
