@@ -22,6 +22,7 @@ class SocketTests: XCTestCase {
         return socket
     }
 
+    // constructor sets defaults
     func testConstructorDefaults() {
         let socket = Socket("wss://localhost:4000/socket")
 
@@ -45,6 +46,7 @@ class SocketTests: XCTestCase {
         XCTAssert(socket.reconnectAfter(11) == 5.00) // 5_000ms (5s)
     }
 
+    // constructor overrides some defaults
     func testDefaultOverrides() {
         let socket = Socket("wss://localhost:4000/socket", paramsClosure: { ["one": 2] })
         socket.timeout = 40000
@@ -59,6 +61,7 @@ class SocketTests: XCTestCase {
         XCTAssert(socket.reconnectAfter(2) == 10)
     }
 
+    // constructor should construct a valid URL
     func testValidSocketURLs() {
         // test vsn
         let socket = Socket("http://localhost:4000/socket/websocket",
@@ -91,6 +94,7 @@ class SocketTests: XCTestCase {
         XCTAssert(expectedEndpointsWithSpaces.contains(socketWithSpaces.endPointUrl.absoluteString))
     }
 
+    // constructor deallocates
     func testWeakRetainByPrivateTimer() {
         // Must remain as a weak var in order to deallocate the socket. This tests that the
         // reconnect timer does not old on to the Socket causing a memory leak.
@@ -98,6 +102,7 @@ class SocketTests: XCTestCase {
         XCTAssertNil(socket)
     }
 
+    // params changes dynamically with a closure
     func testParamsClosure() {
         var authToken = "abc123"
         let socket = Socket("ws://localhost:4000/socket/websocket", paramsClosure: { ["token": authToken] })
@@ -107,6 +112,7 @@ class SocketTests: XCTestCase {
         XCTAssert(socket.params?["token"] as? String == "xyz987")
     }
 
+    // websocketProtocol returns correct url schemes
     func testSocketURLSchemes() {
         // returns wss when protocol is https
         let socketHttps = Socket("https://example.com/")
@@ -194,6 +200,7 @@ extension SocketTests {
         XCTAssert(lastMessage?.payload["go"] as? Bool == true)
     }
 
+    // connect with Websocket does not connect if already connected
     func testOnlyConnectsOnceIfAlreadyConnected() {
         let mockWebSocket = URLSessionTransportMock()
         let socket = createTestSocket(webSocket: mockWebSocket)
@@ -206,6 +213,7 @@ extension SocketTests {
         XCTAssert(mockWebSocket.connectCallsCount == 1)
     }
 
+    // disconnect removes existing connection
     func testNormalDisconnect() {
         let mockWebSocket = URLSessionTransportMock()
         let socket = createTestSocket(webSocket: mockWebSocket)
@@ -217,6 +225,7 @@ extension SocketTests {
         XCTAssert(mockWebSocket.disconnectCodeReasonReceivedArguments?.code == Socket.CloseCode.normal.rawValue)
     }
 
+    // disconnect flags the socket as closed cleanly
     func testCleanDisconnect() {
         let socket = createTestSocket()
 
@@ -225,6 +234,7 @@ extension SocketTests {
         XCTAssert(socket.closeStatus == .clean)
     }
 
+    // disconnect calls callback
     func testDisconnectCallback() {
         let mockWebSocket = URLSessionTransportMock()
         let socket = createTestSocket(webSocket: mockWebSocket)
@@ -241,6 +251,7 @@ extension SocketTests {
         XCTAssert(callCount == 1)
     }
 
+    // disconnect calls onClose for all state callbacks
     func testCallsSocketClosed() {
         let socket = createTestSocket()
         let expectation = expectation(description: "calls onClose for all state callbacks")
@@ -254,6 +265,7 @@ extension SocketTests {
         waitForExpectations(timeout: 3)
     }
 
+    // makeRef returns next message ref and resets to 0 if it hits max int
     func testIncrementalRefs() {
         let socket = Socket("/socket")
         XCTAssert(socket.ref == 0)
@@ -269,6 +281,7 @@ extension SocketTests {
         XCTAssert(socket.ref == 0)
     }
 
+    // flushSendBuffer calls callbacks in buffer when connected
     func testFlushSendBuffer() {
         let mockWebSocket = URLSessionTransportMock()
         let socket = Socket("/socket")
@@ -287,6 +300,7 @@ extension SocketTests {
         XCTAssert(threeCalled == 0)
     }
 
+    // flushSendBuffer empties send buffer
     func testEmptySendBuffer() {
         let mockWebSocket = URLSessionTransportMock()
         let socket = Socket("/socket")
@@ -299,6 +313,7 @@ extension SocketTests {
         XCTAssert(socket.sendBuffer.isEmpty)
     }
 
+    // removeFromSendBuffer removes a callback with a matching ref
     func testRemoveFromSendBuffer() {
         let mockWebSocket = URLSessionTransportMock()
         let socket = Socket("/socket")

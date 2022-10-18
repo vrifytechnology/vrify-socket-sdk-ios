@@ -9,6 +9,7 @@ import XCTest
 @testable import SwiftPhoenixClient
 
 class DefaultSerializerTests: XCTestCase {
+    // encode and decode message converts dictionary to Data and back to Message
     func testEncodeDecode() {
         let body: [Any] = ["join_ref", "ref", "topic", "event", ["user_id": "abc123"]]
         guard let data = try? Defaults.encode(body) else {

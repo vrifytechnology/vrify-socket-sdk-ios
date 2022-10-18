@@ -1,5 +1,5 @@
 //
-//  TimeoutTimerSpec.swift
+//  TimeoutTimerTests.swift
 //  SwiftPhoenixClientTests
 //
 //  Created by Daniel Rees on 2/10/19.
@@ -8,8 +8,8 @@
 import XCTest
 @testable import SwiftPhoenixClient
 
-class TimeoutTimerSpec: XCTestCase {
-    // schedules timeouts, resets the timer, and schedules another timeout
+class TimeoutTimerTests: XCTestCase {
+    // scheduleTimeout schedules timeouts, resets the timer, and schedules another timeout
     func testScheduleTimeout() async {
         let fakeClock = FakeTimerQueue()
         let timer = TimeoutTimer()
@@ -38,6 +38,7 @@ class TimeoutTimerSpec: XCTestCase {
         XCTAssert(timer.tries == 1)
     }
 
+    // scheduleTimeout does not start timer if no interval is provided
     func testNoIntervalTimeoutCreatesNoWorkItem() async {
         let fakeClock = FakeTimerQueue()
         let timer = TimeoutTimer()

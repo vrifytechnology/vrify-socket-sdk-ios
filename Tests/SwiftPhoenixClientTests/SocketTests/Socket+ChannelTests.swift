@@ -26,6 +26,7 @@ extension SocketTests {
         XCTAssert(params as? String == "two")
     }
 
+    // adds channel to sockets channel list
     func testAddChannelToSocketsList() async {
         let socket = createTestSocket()
         XCTAssert(socket.channels.isEmpty)

@@ -10,6 +10,7 @@ import XCTest
 @testable import SwiftPhoenixClient
 
 class URLSessionTransportTests: XCTestCase {
+    // constructor should construct a valid URL
     func testHttptoWSSchemeReplacement() {
         let transportHttp = URLSessionTransport(url: URL(string: "http://localhost:4000/socket/websocket")!)
         XCTAssert(transportHttp.url.absoluteString == "ws://localhost:4000/socket/websocket")
@@ -24,6 +25,7 @@ class URLSessionTransportTests: XCTestCase {
         XCTAssert(transportWss.url.absoluteString == "wss://localhost:4000/socket/websocket")
     }
 
+    // constructor overrides some defaults
     func testOverRideConfiguration() {
         let configuration = URLSessionConfiguration.default
         let overrideTransport = URLSessionTransport(url: URL(string: "wss://localhost:4000")!,

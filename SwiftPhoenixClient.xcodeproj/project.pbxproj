@@ -32,7 +32,7 @@
 		12EF620425524B6800A6EE9B /* SocketTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12EF61FF25524B6800A6EE9B /* SocketTests.swift */; };
 		12EF620525524B6800A6EE9B /* ChannelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12EF620025524B6800A6EE9B /* ChannelTests.swift */; };
 		12EF620625524B6800A6EE9B /* PresenceSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12EF620125524B6800A6EE9B /* PresenceSpec.swift */; };
-		12EF620725524B6800A6EE9B /* TimeoutTimerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12EF620225524B6800A6EE9B /* TimeoutTimerSpec.swift */; };
+		12EF620725524B6800A6EE9B /* TimeoutTimerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12EF620225524B6800A6EE9B /* TimeoutTimerTests.swift */; };
 		12EF620825524B6800A6EE9B /* DefaultSerializerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12EF620325524B6800A6EE9B /* DefaultSerializerTests.swift */; };
 		12EF620E25524EEF00A6EE9B /* MockableClass.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12EF620C25524EEF00A6EE9B /* MockableClass.generated.swift */; };
 		12EF620F25524EEF00A6EE9B /* MockableProtocol.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12EF620D25524EEF00A6EE9B /* MockableProtocol.generated.swift */; };
@@ -43,13 +43,13 @@
 		C3D9BE5728FE11A400972FFB /* Socket+ChannelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2296928FDE7E5005634E5 /* Socket+ChannelTests.swift */; };
 		C3D9BE5F28FE593B00972FFB /* Socket+Combine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2297028FDECA5005634E5 /* Socket+Combine.swift */; };
 		C3D9BE6028FF13D200972FFB /* Socket+HeartbeatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2296D28FDE82B005634E5 /* Socket+HeartbeatTests.swift */; };
+		C3D9BE6128FF209400972FFB /* Socket+PushTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2296B28FDE818005634E5 /* Socket+PushTests.swift */; };
 		C3F2295B28F7625A005634E5 /* PushError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2295A28F7625A005634E5 /* PushError.swift */; };
 		C3F2296028FA1B05005634E5 /* URLSessionTransportProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2295F28FA1B05005634E5 /* URLSessionTransportProtocol.swift */; };
 		C3F2296228FA1B49005634E5 /* URLSessionTransportDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2296128FA1B49005634E5 /* URLSessionTransportDelegate.swift */; };
 		C3F2296428FA1BD1005634E5 /* TransportReadyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2296328FA1BD1005634E5 /* TransportReadyState.swift */; };
 		C3F2296628FA1C44005634E5 /* ChannelState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2296528FA1C44005634E5 /* ChannelState.swift */; };
 		C3F2296828FA1C66005634E5 /* ChannelEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2296728FA1C66005634E5 /* ChannelEvent.swift */; };
-		C3F2296C28FDE818005634E5 /* Socket+PushTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2296B28FDE818005634E5 /* Socket+PushTests.swift */; };
 		C3F2297528FDFB91005634E5 /* ChannelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2297428FDFB91005634E5 /* ChannelProtocol.swift */; };
 /* End PBXBuildFile section */
 
@@ -112,7 +112,7 @@
 		12EF61FF25524B6800A6EE9B /* SocketTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SocketTests.swift; sourceTree = "<group>"; };
 		12EF620025524B6800A6EE9B /* ChannelTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChannelTests.swift; sourceTree = "<group>"; };
 		12EF620125524B6800A6EE9B /* PresenceSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PresenceSpec.swift; sourceTree = "<group>"; };
-		12EF620225524B6800A6EE9B /* TimeoutTimerSpec.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TimeoutTimerSpec.swift; sourceTree = "<group>"; };
+		12EF620225524B6800A6EE9B /* TimeoutTimerTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TimeoutTimerTests.swift; sourceTree = "<group>"; };
 		12EF620325524B6800A6EE9B /* DefaultSerializerTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DefaultSerializerTests.swift; sourceTree = "<group>"; };
 		12EF620C25524EEF00A6EE9B /* MockableClass.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MockableClass.generated.swift; sourceTree = "<group>"; };
 		12EF620D25524EEF00A6EE9B /* MockableProtocol.generated.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MockableProtocol.generated.swift; sourceTree = "<group>"; };
@@ -360,7 +360,7 @@
 		C3D9BE5E28FE165A00972FFB /* TimerTests */ = {
 			isa = PBXGroup;
 			children = (
-				12EF620225524B6800A6EE9B /* TimeoutTimerSpec.swift */,
+				12EF620225524B6800A6EE9B /* TimeoutTimerTests.swift */,
 				63ACBE9326D53DF500171582 /* HeartbeatTimerTests.swift */,
 			);
 			path = TimerTests;
@@ -604,7 +604,6 @@
 				C3F2296828FA1C66005634E5 /* ChannelEvent.swift in Sources */,
 				C3F2296428FA1BD1005634E5 /* TransportReadyState.swift in Sources */,
 				12991E05254C3F3300BB8650 /* Channel.swift in Sources */,
-				C3F2296C28FDE818005634E5 /* Socket+PushTests.swift in Sources */,
 				12991E09254C3F5B00BB8650 /* Presence.swift in Sources */,
 				12991E01254C3F1300BB8650 /* TimeoutTimer.swift in Sources */,
 				C3F2297528FDFB91005634E5 /* ChannelProtocol.swift in Sources */,
@@ -628,7 +627,7 @@
 				12991E11254C456F00BB8650 /* FakeTimerQueue.swift in Sources */,
 				12991E15254C45FC00BB8650 /* FakeTimerQueueTests.swift in Sources */,
 				635669C4261631DC0068B665 /* URLSessionTransportTests.swift in Sources */,
-				12EF620725524B6800A6EE9B /* TimeoutTimerSpec.swift in Sources */,
+				12EF620725524B6800A6EE9B /* TimeoutTimerTests.swift in Sources */,
 				63DE6CCA272A2ECB00E2A728 /* MessageTests.swift in Sources */,
 				C3D9BE5728FE11A400972FFB /* Socket+ChannelTests.swift in Sources */,
 				12EF620F25524EEF00A6EE9B /* MockableProtocol.generated.swift in Sources */,
@@ -636,6 +635,7 @@
 				12991E13254C458100BB8650 /* TestHelpers.swift in Sources */,
 				12EF620525524B6800A6EE9B /* ChannelTests.swift in Sources */,
 				12EF620E25524EEF00A6EE9B /* MockableClass.generated.swift in Sources */,
+				C3D9BE6128FF209400972FFB /* Socket+PushTests.swift in Sources */,
 				12EF620625524B6800A6EE9B /* PresenceSpec.swift in Sources */,
 				12EF620425524B6800A6EE9B /* SocketTests.swift in Sources */,
 				C3D9BE6028FF13D200972FFB /* Socket+HeartbeatTests.swift in Sources */,
