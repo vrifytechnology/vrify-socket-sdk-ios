@@ -138,7 +138,7 @@ public class Socket {
     internal var ref: UInt64 = UInt64.min // 0 (max: 18,446,744,073,709,551,615)
 
     /// Timer that triggers sending new Heartbeat messages
-    private var heartbeatTimer: HeartbeatTimer?
+    internal var heartbeatTimer: HeartbeatTimer?
 
     /// Ref counter for the last heartbeat that was sent
     internal var pendingHeartbeatRef: String?

@@ -4,7 +4,7 @@
 //// swiftlint:disable line_length
 //// swiftlint:disable variable_name
 //
-// @testable import SwiftPhoenixClient
+ @testable import SwiftPhoenixClient
 //
 //// swiftlint:disable:next type_body_length
 // class ChannelMock: ChannelProtocol {
@@ -1133,57 +1133,58 @@
 //    }
 //
 // }
-// class TimeoutTimerMock: TimeoutTimer {
-//    override var callback: Delegated<(), Void> {
-//        get { return underlyingCallback }
-//        set(value) { underlyingCallback = value }
-//    }
-//    var underlyingCallback: (Delegated<(), Void>)!
-//    override var timerCalculation: Delegated<Int, TimeInterval> {
-//        get { return underlyingTimerCalculation }
-//        set(value) { underlyingTimerCalculation = value }
-//    }
-//    var underlyingTimerCalculation: (Delegated<Int, TimeInterval>)!
-//    var workItemSetCount: Int = 0
-//    var workItemDidGetSet: Bool { return workItemSetCount > 0 }
-//    override var workItem: DispatchWorkItem? {
-//        didSet { workItemSetCount += 1 }
-//    }
-//    override var tries: Int {
-//        get { return underlyingTries }
-//        set(value) { underlyingTries = value }
-//    }
-//    var underlyingTries: (Int)!
-//    override var queue: TimerQueue {
-//        get { return underlyingQueue }
-//        set(value) { underlyingQueue = value }
-//    }
-//    var underlyingQueue: (TimerQueue)!
-//
-//    // MARK: - reset
-//
-//    var resetCallsCount = 0
-//    var resetCalled: Bool {
-//        return resetCallsCount > 0
-//    }
-//    var resetClosure: (() -> Void)?
-//
-//    override func reset() {
-//        resetCallsCount += 1
-//        resetClosure?()
-//    }
-//
-//    // MARK: - scheduleTimeout
-//
-//    var scheduleTimeoutCallsCount = 0
-//    var scheduleTimeoutCalled: Bool {
-//        return scheduleTimeoutCallsCount > 0
-//    }
-//    var scheduleTimeoutClosure: (() -> Void)?
-//
-//    override func scheduleTimeout() {
-//        scheduleTimeoutCallsCount += 1
-//        scheduleTimeoutClosure?()
-//    }
-//    // swiftlint:disable:next file_length
-// }
+
+ class TimeoutTimerMock: TimeoutTimer {
+    override var callback: (() -> Void)? {
+        get { return underlyingCallback }
+        set(value) { underlyingCallback = value }
+    }
+    var underlyingCallback: (() -> Void)?
+    override var timerCalculation: ((Int) async -> TimeInterval)? {
+        get { return underlyingTimerCalculation }
+        set(value) { underlyingTimerCalculation = value }
+    }
+    var underlyingTimerCalculation: ((Int) async -> TimeInterval)?
+    var workItemSetCount: Int = 0
+    var workItemDidGetSet: Bool { return workItemSetCount > 0 }
+    override var workItem: DispatchWorkItem? {
+        didSet { workItemSetCount += 1 }
+    }
+    override var tries: Int {
+        get { return underlyingTries }
+        set(value) { underlyingTries = value }
+    }
+    var underlyingTries: (Int)!
+    override var queue: TimerQueue {
+        get { return underlyingQueue }
+        set(value) { underlyingQueue = value }
+    }
+    var underlyingQueue: (TimerQueue)!
+
+    // MARK: - reset
+
+    var resetCallsCount = 0
+    var resetCalled: Bool {
+        return resetCallsCount > 0
+    }
+    var resetClosure: (() -> Void)?
+
+    override func reset() {
+        resetCallsCount += 1
+        resetClosure?()
+    }
+
+    // MARK: - scheduleTimeout
+
+    var scheduleTimeoutCallsCount = 0
+    var scheduleTimeoutCalled: Bool {
+        return scheduleTimeoutCallsCount > 0
+    }
+    var scheduleTimeoutClosure: (() -> Void)?
+
+    override func scheduleTimeout() async {
+        scheduleTimeoutCallsCount += 1
+        scheduleTimeoutClosure?()
+    }
+    // swiftlint:disable:next file_length
+ }

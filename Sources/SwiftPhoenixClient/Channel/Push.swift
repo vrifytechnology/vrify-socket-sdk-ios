@@ -110,17 +110,20 @@ extension Push {
         self.refEvent = refEvent
 
         if timeout == 0 {
-            setupMessageCancellable(channel, ref)
+            setupMessageCancellable(channel, refEvent, ref)
         } else {
-            setupTimeoutableMessageCancellable(channel, ref)
+            setupTimeoutableMessageCancellable(channel, refEvent, ref)
         }
     }
 
-    func setupMessageCancellable(_ channel: Channel, _ ref: String) {
+    func setupMessageCancellable(_ channel: Channel, _ refEvent: String, _ ref: String) {
         /// If a response is received  before the Timer triggers, cancel timer
         /// and match the recevied event to it's corresponding
         channel.messagePublisher
-            .filter { $0.event == ChannelEvent.reply && $0.ref == ref }
+            .compactMap { $0 }
+            .filter {
+                $0.event == refEvent && $0.ref == ref
+            }
             .sink(receiveCompletion: { [weak self] in
                 if case .failure(let error) = $0,
                    self?.pushResponse.value == nil {
@@ -132,11 +135,12 @@ extension Push {
             .store(in: &cancellables)
     }
 
-    func setupTimeoutableMessageCancellable(_ channel: Channel, _ ref: String) {
+    func setupTimeoutableMessageCancellable(_ channel: Channel, _ refEvent: String, _ ref: String) {
         /// If a response is received  before the Timer triggers, cancel timer
         /// and match the recevied event to it's corresponding
         channel.messagePublisher
-            .filter { $0.event == ChannelEvent.reply && $0.ref == ref }
+            .compactMap { $0 }
+            .filter { $0.event == refEvent && $0.ref == ref }
             .timeout(.seconds(timeout),
                      scheduler: DispatchQueue.global(),
                      customError: { [self] in .timeout(event: event, payload: payload) })
@@ -184,6 +188,6 @@ Implementations of `handle_in` with {:noreply, socket} should not consider this 
         var mutPayload = payload
         mutPayload["status"] = status
 
-        await self.channel?.trigger(event: refEvent, payload: mutPayload)
+        await self.channel?.trigger(event: refEvent, payload: mutPayload, ref: ref ?? "")
     }
 }

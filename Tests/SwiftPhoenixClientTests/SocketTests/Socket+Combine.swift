@@ -1,297 +1,396 @@
-////
-////  Socket+Combine.swift
-////  SwiftPhoenixClient
-////
-////  Created by Jatinder Sidhu on 2022-10-17.
-////  Copyright © 2022 SwiftPhoenixClient. All rights reserved.
-////
 //
-// import Foundation
+//  Socket+Combine.swift
+//  SwiftPhoenixClient
 //
+//  Created by Jatinder Sidhu on 2022-10-17.
+//  Copyright © 2022 SwiftPhoenixClient. All rights reserved.
 //
-//
-// describe("onConnectionOpen") {
-//    // Mocks
-//    var mockWebSocket: URLSessionTransportMock!
-//    var mockTimeoutTimer: TimeoutTimerMock!
-//    let mockWebSocketTransport: ((URL) -> URLSessionTransportMock) = { _ in return mockWebSocket }
-//
-//    // UUT
-//    var socket: Socket!
-//
-//    beforeEach {
-//        mockWebSocket = URLSessionTransportMock()
-//        mockTimeoutTimer = TimeoutTimerMock()
-//        socket = Socket(endPoint: "/socket", transport: mockWebSocketTransport)
+
+import XCTest
+import Foundation
+import Combine
+@testable import SwiftPhoenixClient
+
+extension SocketTests {
+    private func createTimeoutableSocket(timeoutTimer: TimeoutTimer = TimeoutTimerMock(),
+                                         webSocket: URLSessionTransportMock = URLSessionTransportMock()) -> Socket {
+        let socket = Socket(endPoint: "/socket", transport: { _ in webSocket })
+        socket.reconnectAfter = { _ in return 10 }
+        socket.reconnectTimer = timeoutTimer
+        socket.skipHeartbeat = true
+
+        webSocket.readyState = .open
+        socket.connect()
+        return socket
+    }
+
+    // onConnectionOpen flushes the send buffer
+    func testOnConnectionOpenSendBufferFlushes() {
+        let socket = createTimeoutableSocket()
+
+        var oneCalled = 0
+        socket.sendBuffer.append(("0", { oneCalled += 1 }))
+
+        socket.onConnectionOpen()
+        XCTAssert(oneCalled == 1)
+        XCTAssert(socket.sendBuffer.isEmpty)
+    }
+
+    // onConnectionOpen resets reconnectTimer
+    func testOnConnectionResetsReconnectTimer() {
+        let mockTimeoutTimer = TimeoutTimerMock()
+        let socket = createTimeoutableSocket(timeoutTimer: mockTimeoutTimer)
+        socket.onConnectionOpen()
+        XCTAssert(mockTimeoutTimer.resetCalled)
+    }
+
+    // onConnectionOpen triggers onOpen callbacks
+    func testOnConnectionOpenCallbacks() {
+        let socket = createTimeoutableSocket()
+
+        var oneCalled = 0
+        socket.socketOpened
+            .sink { oneCalled += 1 }
+            .store(in: &cancellables)
+
+        var twoCalled = 0
+        socket.socketOpened
+            .sink { twoCalled += 1 }
+            .store(in: &cancellables)
+
+        var threeCalled = 0
+        socket.socketClosed
+            .sink { threeCalled += 1 }
+            .store(in: &cancellables)
+
+        socket.onConnectionOpen()
+        XCTAssert(oneCalled == 1)
+        XCTAssert(twoCalled == 1)
+        XCTAssert(threeCalled == 0)
+    }
+}
+
+extension SocketTests {
+    private func createClosableSocket(timeoutTimer: TimeoutTimer = TimeoutTimerMock(),
+                                      webSocket: URLSessionTransportMock = URLSessionTransportMock()) -> Socket {
+        let socket = Socket(endPoint: "/socket", transport: { _ in webSocket })
 //        socket.reconnectAfter = { _ in return 10 }
-//        socket.reconnectTimer = mockTimeoutTimer
+        socket.reconnectTimer = timeoutTimer
 //        socket.skipHeartbeat = true
-//
-//        mockWebSocket.readyState = .open
-//        socket.connect()
-//    }
-//
-//    it("flushes the send buffer", closure: {
-//        var oneCalled = 0
-//        socket.sendBuffer.append(("0", { oneCalled += 1 }))
-//
-//        socket.onConnectionOpen()
-//        XCTAssert(oneCalled == 1))
-//        XCTAssert(socket.sendBuffer == beEmpty())
-//    })
-//
-//    it("resets reconnectTimer", closure: {
-//        socket.onConnectionOpen()
-//        XCTAssert(mockTimeoutTimer.resetCalled == beTrue())
-//    })
-//
-//    it("triggers onOpen callbacks", closure: {
-//        var oneCalled = 0
-//        socket.onOpen { oneCalled += 1 }
-//        var twoCalled = 0
-//        socket.onOpen { twoCalled += 1 }
-//        var threeCalled = 0
-//        socket.onClose { threeCalled += 1 }
-//
-//        socket.onConnectionOpen()
-//        XCTAssert(oneCalled == 1))
-//        XCTAssert(twoCalled == 1))
-//        XCTAssert(threeCalled == 0))
-//    })
-// }
-//
-// describe("onConnectionClosed") {
-//    // Mocks
-//    var mockWebSocket: URLSessionTransportMock!
-//    var mockTimeoutTimer: TimeoutTimerMock!
-//    let mockWebSocketTransport: ((URL) -> URLSessionTransportMock) = { _ in return mockWebSocket }
-//
-//    // UUT
-//    var socket: Socket!
-//
-//    beforeEach {
-//        mockWebSocket = URLSessionTransportMock()
-//        mockTimeoutTimer = TimeoutTimerMock()
-//        socket = Socket(endPoint: "/socket", transport: mockWebSocketTransport)
-//        //        socket.reconnectAfter = { _ in return 10 }
-//        socket.reconnectTimer = mockTimeoutTimer
-//        //        socket.skipHeartbeat = true
-//    }
-//
-//    it("schedules reconnectTimer timeout if normal close", closure: {
-//        socket.onConnectionClosed(code: Socket.CloseCode.normal.rawValue)
-//        XCTAssert(mockTimeoutTimer.scheduleTimeoutCalled == beTrue())
-//    })
-//
-//    it("does not schedule reconnectTimer timeout if normal close after explicit disconnect", closure: {
-//        socket.disconnect()
-//        XCTAssert(mockTimeoutTimer.scheduleTimeoutCalled == beFalse())
-//    })
-//
-//    it("schedules reconnectTimer timeout if not normal close", closure: {
-//        socket.onConnectionClosed(code: 1001)
-//        XCTAssert(mockTimeoutTimer.scheduleTimeoutCalled == beTrue())
-//    })
-//
-//    it("schedules reconnectTimer timeout if connection cannot be made after a previous clean disconnect",
-//       closure: {
-//        socket.disconnect()
-//        socket.connect()
-//
-//        socket.onConnectionClosed(code: 1001)
-//        XCTAssert(mockTimeoutTimer.scheduleTimeoutCalled == beTrue())
-//    })
-//
-//    it("triggers channel error if joining", closure: {
-//        let channel = socket.channel("topic")
-//        var errorCalled = false
-//        channel.on(ChannelEvent.error, callback: { _ in
-//            errorCalled = true
-//        })
-//
-//        channel.join()
-//        XCTAssert(channel.state == .joining))
-//
-//        socket.onConnectionClosed(code: 1001)
-//        XCTAssert(errorCalled == beTrue())
-//    })
-//
-//    it("triggers channel error if joined", closure: {
-//        let channel = socket.channel("topic")
-//        var errorCalled = false
-//        channel.on(ChannelEvent.error, callback: { _ in
-//            errorCalled = true
-//        })
-//
-//        channel.join().trigger("ok", payload: [:])
-//        XCTAssert(channel.state == .joined))
-//
-//        socket.onConnectionClosed(code: 1001)
-//        XCTAssert(errorCalled == beTrue())
-//    })
-//
-//    it("does not trigger channel error after leave", closure: {
-//        let channel = socket.channel("topic")
-//        var errorCalled = false
-//        channel.on(ChannelEvent.error, callback: { _ in
-//            errorCalled = true
-//        })
-//
-//        channel.join().trigger("ok", payload: [:])
-//        channel.leave()
-//        XCTAssert(channel.state == .closed))
-//
-//        socket.onConnectionClosed(code: 1001)
-//        XCTAssert(errorCalled == beFalse())
-//    })
-//
-//    it("triggers onClose callbacks", closure: {
-//        var oneCalled = 0
-//        socket.onClose { oneCalled += 1 }
-//        var twoCalled = 0
-//        socket.onClose { twoCalled += 1 }
-//        var threeCalled = 0
-//        socket.onOpen { threeCalled += 1 }
-//
-//        socket.onConnectionClosed(code: 1000)
-//        XCTAssert(oneCalled == 1))
-//        XCTAssert(twoCalled == 1))
-//        XCTAssert(threeCalled == 0))
-//    })
-// }
-//
-// describe("onConnectionError") {
-//    // Mocks
-//    var mockWebSocket: URLSessionTransportMock!
-//    var mockTimeoutTimer: TimeoutTimerMock!
-//    let mockWebSocketTransport: ((URL) -> URLSessionTransportMock) = { _ in return mockWebSocket }
-//
-//    // UUT
-//    var socket: Socket!
-//
-//    beforeEach {
-//        mockWebSocket = URLSessionTransportMock()
-//        mockTimeoutTimer = TimeoutTimerMock()
-//        socket = Socket(endPoint: "/socket", transport: mockWebSocketTransport)
-//        socket.reconnectAfter = { _ in return 10 }
-//        socket.reconnectTimer = mockTimeoutTimer
-//        socket.skipHeartbeat = true
-//
-//        mockWebSocket.readyState = .open
-//        socket.connect()
-//    }
-//
-//    it("triggers onClose callbacks", closure: {
-//        var lastError: Error?
-//        socket.onError(callback: { (error) in lastError = error })
-//
-//        socket.onConnectionError(TestError.stub)
-//        XCTAssert(lastError).toNot(beNil())
-//    })
-//
-//    it("triggers channel error if joining", closure: {
-//        let channel = socket.channel("topic")
-//        var errorCalled = false
-//        channel.on(ChannelEvent.error, callback: { _ in
-//            errorCalled = true
-//        })
-//
-//        channel.join()
-//        XCTAssert(channel.state == .joining))
-//
-//        socket.onConnectionError(TestError.stub)
-//        XCTAssert(errorCalled == beTrue())
-//    })
-//
-//    it("triggers channel error if joined", closure: {
-//        let channel = socket.channel("topic")
-//        var errorCalled = false
-//        channel.on(ChannelEvent.error, callback: { _ in
-//            errorCalled = true
-//        })
-//
-//        channel.join().trigger("ok", payload: [:])
-//        XCTAssert(channel.state == .joined))
-//
-//        socket.onConnectionError(TestError.stub)
-//        XCTAssert(errorCalled == beTrue())
-//    })
-//
-//    it("does not trigger channel error after leave", closure: {
-//        let channel = socket.channel("topic")
-//        var errorCalled = false
-//        channel.on(ChannelEvent.error, callback: { _ in
-//            errorCalled = true
-//        })
-//
-//        channel.join().trigger("ok", payload: [:])
-//        channel.leave()
-//        XCTAssert(channel.state == .closed))
-//
-//        socket.onConnectionError(TestError.stub)
-//        XCTAssert(errorCalled == beFalse())
-//    })
-// }
-//
-// describe("onConnectionMessage") {
-//    // Mocks
-//    var mockWebSocket: URLSessionTransportMock!
-//    var mockTimeoutTimer: TimeoutTimerMock!
-//    let mockWebSocketTransport: ((URL) -> URLSessionTransportMock) = { _ in return mockWebSocket }
-//
-//    // UUT
-//    var socket: Socket!
-//
-//    beforeEach {
-//        mockWebSocket = URLSessionTransportMock()
-//        mockTimeoutTimer = TimeoutTimerMock()
-//        socket = Socket(endPoint: "/socket", transport: mockWebSocketTransport)
-//        socket.reconnectAfter = { _ in return 10 }
-//        socket.reconnectTimer = mockTimeoutTimer
-//        socket.skipHeartbeat = true
-//
-//        mockWebSocket.readyState = .open
-//        socket.connect()
-//    }
-//
-//    it("parses raw message and triggers channel event", closure: {
-//        let targetChannel = socket.channel("topic")
-//        let otherChannel = socket.channel("off-topic")
-//
-//        var targetMessage: Message?
-//        targetChannel.on("event", callback: { (msg) in targetMessage = msg })
-//
-//        var otherMessage: Message?
-//        otherChannel.on("event", callback: { (msg) in otherMessage = msg })
-//
-//        let data: [Any?] = [nil, nil, "topic", "event", ["status": "ok", "response": ["one": "two"]]]
-//        let rawMessage = toWebSocketText(data: data)
-//
-//        socket.onConnectionMessage(rawMessage)
-//        XCTAssert(targetMessage?.topic == "topic"))
-//        XCTAssert(targetMessage?.event == "event"))
-//        XCTAssert(targetMessage?.payload["one"] as? String == "two"))
-//        XCTAssert(otherMessage == beNil())
-//    })
-//
-//    it("triggers onMessage callbacks", closure: {
-//        var message: Message?
-//        socket.onMessage(callback: { (msg) in message = msg })
-//
-//        let data: [Any?] = [nil, nil, "topic", "event", ["status": "ok", "response": ["one": "two"]]]
-//        let rawMessage = toWebSocketText(data: data)
-//
-//        socket.onConnectionMessage(rawMessage)
-//        XCTAssert(message?.topic == "topic"))
-//        XCTAssert(message?.event == "event"))
-//        XCTAssert(message?.payload["one"] as? String == "two"))
-//    })
-//
-//    it("clears pending heartbeat", closure: {
-//        socket.pendingHeartbeatRef = "5"
-//        let rawMessage = "[null,\"5\",\"phoenix\",\"phx_reply\",{\"response\":{},\"status\":\"ok\"}]"
-//        socket.onConnectionMessage(rawMessage)
-//        XCTAssert(socket.pendingHeartbeatRef == beNil())
-//    })
-// }
-// }
+        return socket
+    }
+
+    // onConnectionClosed schedules reconnectTimer timeout if normal close
+    func testOnNormalCloseScheduleReconnect() async {
+        let mockTimeoutTimer = TimeoutTimerMock()
+        let socket = createClosableSocket(timeoutTimer: mockTimeoutTimer)
+
+        await socket.onConnectionClosed(code: Socket.CloseCode.normal.rawValue)
+        XCTAssert(mockTimeoutTimer.scheduleTimeoutCalled)
+    }
+
+    // onConnectionClosed does not schedule reconnectTimer timeout if normal close after explicit disconnect
+    func testOnExplicitCloseDoesNotScheduleReconnect() async {
+        let mockTimeoutTimer = TimeoutTimerMock()
+        let socket = createClosableSocket(timeoutTimer: mockTimeoutTimer)
+
+        socket.disconnect()
+        XCTAssertFalse(mockTimeoutTimer.scheduleTimeoutCalled)
+    }
+
+    // onConnectionClosed schedules reconnectTimer timeout if not normal close
+    func testOnNotNormalCloseSchedulesReconnect() async {
+        let mockTimeoutTimer = TimeoutTimerMock()
+        let socket = createClosableSocket(timeoutTimer: mockTimeoutTimer)
+
+        await socket.onConnectionClosed(code: 1001)
+        XCTAssert(mockTimeoutTimer.scheduleTimeoutCalled)
+    }
+
+    // onConnectionClosed schedules reconnectTimer timeout if connection cannot be made
+    // after a previous clean disconnect
+    func testSchedulesReconnectWhenNoConnectionOnCleanDisconnect() async {
+        let mockTimeoutTimer = TimeoutTimerMock()
+        let socket = createClosableSocket(timeoutTimer: mockTimeoutTimer)
+
+        socket.disconnect()
+        socket.connect()
+
+        await socket.onConnectionClosed(code: 1001)
+        XCTAssert(mockTimeoutTimer.scheduleTimeoutCalled)
+    }
+
+    // onConnectionClosed triggers channel error if joining
+    func testOnConnectionClosedTriggerErrorWhileJoining() async {
+        let socket = createClosableSocket()
+        let channel = await socket.channel("topic")
+        var errorCalled = false
+
+        channel.messagePublisher
+            .filter { $0.event == ChannelEvent.error }
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { _ in errorCalled = true })
+            .store(in: &cancellables)
+
+        await channel.join()
+        let state = await channel.state
+        XCTAssert(state == .joining)
+
+        await socket.onConnectionClosed(code: 1001)
+        XCTAssert(errorCalled)
+    }
+
+    // onConnectionClosed triggers channel error if joined
+    func testOnConnectionClosedTriggerErrorWhileJoined() async {
+        let socket = createClosableSocket()
+        let channel = await socket.channel("topic")
+        var errorCalled = false
+
+        channel.messagePublisher
+            .filter { $0.event == ChannelEvent.error }
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { _ in errorCalled = true })
+            .store(in: &cancellables)
+
+        let joinPush = await channel.join()
+        let expectation = expectation(description: "ok was not triggered")
+        channel.messagePublisher
+            .compactMap { $0 }
+            .filter { $0.event == joinPush.refEvent }
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { _ in expectation.fulfill() })
+            .store(in: &cancellables)
+
+        await joinPush.trigger("ok", payload: [:])
+        await Task.yield()
+        await waitForExpectations(timeout: 3)
+
+        let state = await channel.state
+        XCTAssert(state == .joined)
+
+        await socket.onConnectionClosed(code: 1001)
+        XCTAssert(errorCalled)
+    }
+
+    // onConnectionClosed does not trigger channel error after leave
+    func testOnConnectionClosedDoesNotTriggerErrorAfterLeave() async {
+        let socket = createClosableSocket()
+        let channel = await socket.channel("topic")
+        var errorCalled = false
+
+        channel.messagePublisher
+            .filter { $0.event == ChannelEvent.error }
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { _ in errorCalled = true })
+            .store(in: &cancellables)
+
+        let joinPush = await channel.join()
+        let expectation = expectation(description: "ok was not triggered")
+        channel.messagePublisher
+            .compactMap { $0 }
+            .filter { $0.event == joinPush.refEvent }
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { _ in expectation.fulfill() })
+            .store(in: &cancellables)
+
+        await joinPush.trigger("ok", payload: [:])
+        await channel.leave(timeout: Defaults.timeoutInterval)
+
+        await Task.yield()
+        await waitForExpectations(timeout: 3)
+
+        let state = await channel.state
+        XCTAssert(state == .closed)
+
+        await socket.onConnectionClosed(code: 1001)
+        XCTAssertFalse(errorCalled)
+    }
+
+    // onConnectionClosed triggers onClose callbacks
+    func testOnConnectionClosedTriggersCallbacks() async {
+        let socket = createClosableSocket()
+
+        var oneCalled = 0
+        socket.socketClosed
+            .sink { oneCalled += 1 }
+            .store(in: &cancellables)
+
+        var twoCalled = 0
+        socket.socketClosed
+            .sink { twoCalled += 1 }
+            .store(in: &cancellables)
+
+        var threeCalled = 0
+        socket.socketOpened
+            .sink { threeCalled += 1 }
+            .store(in: &cancellables)
+
+        await socket.onConnectionClosed(code: 1000)
+        XCTAssert(oneCalled == 1)
+        XCTAssert(twoCalled == 1)
+        XCTAssert(threeCalled == 0)
+    }
+}
+
+extension SocketTests {
+    // onConnectionError triggers onClose callbacks
+    func testOnConnectionErrorTriggerCloseCallbacks() async {
+        let socket = createTimeoutableSocket()
+        var lastError: Error?
+        socket.socketErrored
+            .sink { (error) in lastError = error }
+            .store(in: &cancellables)
+
+        await socket.onError(error: TestError.stub)
+        XCTAssertNotNil(lastError)
+    }
+
+    // onConnectionError triggers channel error if joining
+    func testOnConnectionErrorTriggerChannelErrorIfJoining() async {
+        let socket = createTimeoutableSocket()
+        let channel = await socket.channel("topic")
+        var errorCalled = false
+
+        channel
+            .messagePublisher
+            .filter { $0.event == ChannelEvent.error }
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { _ in  errorCalled = true })
+            .store(in: &cancellables)
+
+        await channel.join()
+        let state = await channel.state
+        XCTAssert(state == .joining)
+
+        await socket.onConnectionError(TestError.stub)
+        XCTAssert(errorCalled)
+    }
+
+    // onConnectionError triggers channel error if joined
+    func testOnConnectionErrorTriggerChannelErrorIfJoined() async {
+        let socket = createTimeoutableSocket()
+        let channel = await socket.channel("topic")
+        var errorCalled = false
+
+        channel
+            .messagePublisher
+            .filter { $0.event == ChannelEvent.error }
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { _ in  errorCalled = true })
+            .store(in: &cancellables)
+
+        let joinPush = await channel.join()
+        let expectation = expectation(description: "ok was not triggered")
+        channel.messagePublisher
+            .compactMap { $0 }
+            .filter { $0.event == joinPush.refEvent }
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { _ in expectation.fulfill() })
+            .store(in: &cancellables)
+
+        await joinPush.trigger("ok", payload: [:])
+        await Task.yield()
+        await waitForExpectations(timeout: 3)
+
+        let state = await channel.state
+        XCTAssert(state == .joined)
+
+        await socket.onConnectionError(TestError.stub)
+        XCTAssert(errorCalled)
+    }
+
+    // onConnectionError does not trigger channel error after leave
+    func testOnConnectionErrorDoesNotTriggerChannelErrorAfterLeave() async {
+        let socket = createTimeoutableSocket()
+        let channel = await socket.channel("topic")
+        var errorCalled = false
+
+        channel
+            .messagePublisher
+            .filter { $0.event == ChannelEvent.error }
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { _ in  errorCalled = true })
+            .store(in: &cancellables)
+
+        let joinPush = await channel.join()
+        let expectation = expectation(description: "ok was not triggered")
+        channel.messagePublisher
+            .compactMap { $0 }
+            .filter { $0.event == joinPush.refEvent }
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { _ in expectation.fulfill() })
+            .store(in: &cancellables)
+
+        await joinPush.trigger("ok", payload: [:])
+        await channel.leave(timeout: Defaults.timeoutInterval)
+
+        await Task.yield()
+        await waitForExpectations(timeout: 3)
+
+        await socket.onConnectionError(TestError.stub)
+        XCTAssertFalse(errorCalled)
+    }
+}
+
+extension SocketTests {
+    // onConnectionMessage parses raw message and triggers channel event
+    func testOnConnectionMessageParsesCorrectly() async {
+        let socket = createTimeoutableSocket()
+        let targetChannel = await socket.channel("topic")
+        let otherChannel = await  socket.channel("off-topic")
+
+        var targetMessage: Message?
+        targetChannel
+            .messagePublisher
+            .compactMap { $0 }
+            .filter { $0.event == "event" }
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { targetMessage = $0 })
+            .store(in: &cancellables)
+
+        var otherMessage: Message?
+        otherChannel
+            .messagePublisher
+            .compactMap { $0 }
+            .filter { $0.event == "event" }
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { otherMessage = $0 })
+            .store(in: &cancellables)
+
+        let data: [Any?] = [nil, nil, "topic", "event", ["status": "ok", "response": ["one": "two"]]]
+        let rawMessage = toWebSocketText(data: data)
+
+        await socket.onConnectionMessage(rawMessage)
+        XCTAssert(targetMessage?.topic == "topic")
+        XCTAssert(targetMessage?.event == "event")
+        XCTAssert(targetMessage?.payload["one"] as? String == "two")
+        XCTAssertNil(otherMessage)
+    }
+
+    // onConnectionMessage triggers onMessage callbacks
+    func testOnConnectionMessageTriggerCallbacks() async {
+        let socket = createTimeoutableSocket()
+        var message: Message?
+        socket
+            .socketRecievedMessage
+            .sink { message = $0 }
+            .store(in: &cancellables)
+
+        let data: [Any?] = [nil, nil, "topic", "event", ["status": "ok", "response": ["one": "two"]]]
+        let rawMessage = toWebSocketText(data: data)
+
+        await socket.onConnectionMessage(rawMessage)
+        XCTAssert(message?.topic == "topic")
+        XCTAssert(message?.event == "event")
+        XCTAssert(message?.payload["one"] as? String == "two")
+    }
+
+    // onConnectionMessage clears pending heartbeat
+    func testOnConnectionMessageClearsPendingHeartbeat() async {
+        let socket = createTimeoutableSocket()
+        socket.pendingHeartbeatRef = "5"
+        let rawMessage = "[null,\"5\",\"phoenix\",\"phx_reply\",{\"response\":{},\"status\":\"ok\"}]"
+        await socket.onConnectionMessage(rawMessage)
+        XCTAssertNil(socket.pendingHeartbeatRef)
+    }
+}

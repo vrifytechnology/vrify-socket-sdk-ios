@@ -10,14 +10,13 @@ import Combine
 @testable import SwiftPhoenixClient
 
 class SocketTests: XCTestCase {
-    private var cancellables = Set<AnyCancellable>()
+    var cancellables = Set<AnyCancellable>()
     private let encode = Defaults.encode
-    private let decode = Defaults.decode
+    let decode = Defaults.decode
 
-    func createTestSocket(webSocket: URLSessionTransportProtocol? = URLSessionTransportMock()) -> Socket {
+    func createTestSocket(webSocket: URLSessionTransportProtocol = URLSessionTransportMock()) -> Socket {
         let socket = Socket(endPoint: "/socket", transport: { _ in
-            // swiftlint:disable:next force_cast
-            webSocket!
+            webSocket
         })
         socket.skipHeartbeat = true
         return socket
