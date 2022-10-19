@@ -243,6 +243,12 @@ public class Socket {
             self.sendBuffer.append((ref: ref, callback: callback))
         }
     }
+
+    /// - return: the next message ref, accounting for overflows
+    public func makeRef() -> String {
+        self.ref = (ref == UInt64.max) ? 0 : self.ref + 1
+        return String(ref)
+    }
 }
 
 extension Socket {
@@ -358,12 +364,6 @@ extension Socket {
         }
 
         self.channels = channels
-    }
-
-    /// - return: the next message ref, accounting for overflows
-    public func makeRef() -> String {
-        self.ref = (ref == UInt64.max) ? 0 : self.ref + 1
-        return String(ref)
     }
 
     /// Logs the message. Override Socket.logger for specialized logging. noops by default

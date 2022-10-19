@@ -70,7 +70,7 @@ internal protocol ChannelProtocol: Actor {
     /// - parameter timeout: Optional. Defaults to Channel's timeout
     /// - return: Push event
     @discardableResult
-    func join(timeout: TimeInterval?) async -> Push
+    func join(timeout: TimeInterval?) async throws -> Push
 
     /// Creates a Push with a payload for the Channel
     ///
@@ -82,7 +82,7 @@ internal protocol ChannelProtocol: Actor {
     /// - parameter payload: Payload to push
     /// - parameter timeout: Timeout. A timeout of 0.0 will never result in a timeout Error.
     @discardableResult
-    func createPush(_ event: String, payload: Payload, timeout: TimeInterval) -> Push
+    func createPush(_ event: String, payload: Payload, timeout: TimeInterval) throws -> Push
 
     /// Sends a Push over the Socket for the Channel
     ///
@@ -91,7 +91,7 @@ internal protocol ChannelProtocol: Actor {
     ///     channel.send(push)
     ///
     /// - parameter push: Push object to send over the Socket
-    func send(_ push: Push) async
+    func send(_ push: Push) async throws
 
     /// Leaves the channel
     ///

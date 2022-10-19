@@ -14,7 +14,7 @@ class SocketTests: XCTestCase {
     private let encode = Defaults.encode
     let decode = Defaults.decode
 
-    func createTestSocket(webSocket: URLSessionTransportProtocol = URLSessionTransportMock()) -> Socket {
+    func createSocketTestsSocket(webSocket: URLSessionTransportProtocol = URLSessionTransportMock()) -> Socket {
         let socket = Socket(endPoint: "/socket", transport: { _ in
             webSocket
         })
@@ -147,7 +147,7 @@ class SocketTests: XCTestCase {
 extension SocketTests {
     /// establishes websocket connection with endpoint
     func testWebSocketConnection() {
-        let socket = createTestSocket()
+        let socket = createSocketTestsSocket()
 
         socket.connect()
         XCTAssertNotNil(socket.connection)
@@ -156,7 +156,7 @@ extension SocketTests {
     /// test callbacks for connection
     func testWebSocketConnectionCallbacks() async {
         let mockWebSocket = URLSessionTransportMock()
-        let socket = createTestSocket(webSocket: mockWebSocket)
+        let socket = createSocketTestsSocket(webSocket: mockWebSocket)
 
         var open = 0
         socket.socketOpened.sink {
@@ -203,7 +203,7 @@ extension SocketTests {
     // connect with Websocket does not connect if already connected
     func testOnlyConnectsOnceIfAlreadyConnected() {
         let mockWebSocket = URLSessionTransportMock()
-        let socket = createTestSocket(webSocket: mockWebSocket)
+        let socket = createSocketTestsSocket(webSocket: mockWebSocket)
 
         mockWebSocket.readyState = .open
 
@@ -216,7 +216,7 @@ extension SocketTests {
     // disconnect removes existing connection
     func testNormalDisconnect() {
         let mockWebSocket = URLSessionTransportMock()
-        let socket = createTestSocket(webSocket: mockWebSocket)
+        let socket = createSocketTestsSocket(webSocket: mockWebSocket)
 
         socket.connect()
         socket.disconnect()
@@ -227,7 +227,7 @@ extension SocketTests {
 
     // disconnect flags the socket as closed cleanly
     func testCleanDisconnect() {
-        let socket = createTestSocket()
+        let socket = createSocketTestsSocket()
 
         XCTAssert(socket.closeStatus == .unknown)
         socket.disconnect()
@@ -237,7 +237,7 @@ extension SocketTests {
     // disconnect calls callback
     func testDisconnectCallback() {
         let mockWebSocket = URLSessionTransportMock()
-        let socket = createTestSocket(webSocket: mockWebSocket)
+        let socket = createSocketTestsSocket(webSocket: mockWebSocket)
 
         var callCount = 0
         socket.connect()
@@ -253,7 +253,7 @@ extension SocketTests {
 
     // disconnect calls onClose for all state callbacks
     func testCallsSocketClosed() {
-        let socket = createTestSocket()
+        let socket = createSocketTestsSocket()
         let expectation = expectation(description: "calls onClose for all state callbacks")
 
         socket.socketClosed.sink {

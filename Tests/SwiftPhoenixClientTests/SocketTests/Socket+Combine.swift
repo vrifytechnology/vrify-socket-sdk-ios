@@ -132,12 +132,16 @@ extension SocketTests {
                   receiveValue: { _ in errorCalled = true })
             .store(in: &cancellables)
 
-        await channel.join()
-        let state = await channel.state
-        XCTAssert(state == .joining)
+        do {
+            try await channel.join()
+            let state = await channel.state
+            XCTAssert(state == .joining)
 
-        await socket.onConnectionClosed(code: 1001)
-        XCTAssert(errorCalled)
+            await socket.onConnectionClosed(code: 1001)
+            XCTAssert(errorCalled)
+        } catch {
+            XCTFail("testOnConnectionClosedTriggerErrorWhileJoining Join threw an error")
+        }
     }
 
     // onConnectionClosed triggers channel error if joined
@@ -152,24 +156,28 @@ extension SocketTests {
                   receiveValue: { _ in errorCalled = true })
             .store(in: &cancellables)
 
-        let joinPush = await channel.join()
-        let expectation = expectation(description: "ok was not triggered")
-        channel.messagePublisher
-            .compactMap { $0 }
-            .filter { $0.event == joinPush.refEvent }
-            .sink(receiveCompletion: { _ in },
-                  receiveValue: { _ in expectation.fulfill() })
-            .store(in: &cancellables)
+        do {
+            let joinPush = try await channel.join()
+            let expectation = expectation(description: "ok was not triggered")
+            channel.messagePublisher
+                .compactMap { $0 }
+                .filter { $0.event == joinPush.refEvent }
+                .sink(receiveCompletion: { _ in },
+                      receiveValue: { _ in expectation.fulfill() })
+                .store(in: &cancellables)
 
-        await joinPush.trigger("ok", payload: [:])
-        await Task.yield()
-        await waitForExpectations(timeout: 3)
+            await joinPush.trigger("ok", payload: [:])
+            await Task.yield()
+            await waitForExpectations(timeout: 3)
 
-        let state = await channel.state
-        XCTAssert(state == .joined)
+            let state = await channel.state
+            XCTAssert(state == .joined)
 
-        await socket.onConnectionClosed(code: 1001)
-        XCTAssert(errorCalled)
+            await socket.onConnectionClosed(code: 1001)
+            XCTAssert(errorCalled)
+        } catch {
+            XCTFail("testOnConnectionClosedTriggerErrorWhileJoined Join threw an error")
+        }
     }
 
     // onConnectionClosed does not trigger channel error after leave
@@ -184,26 +192,30 @@ extension SocketTests {
                   receiveValue: { _ in errorCalled = true })
             .store(in: &cancellables)
 
-        let joinPush = await channel.join()
-        let expectation = expectation(description: "ok was not triggered")
-        channel.messagePublisher
-            .compactMap { $0 }
-            .filter { $0.event == joinPush.refEvent }
-            .sink(receiveCompletion: { _ in },
-                  receiveValue: { _ in expectation.fulfill() })
-            .store(in: &cancellables)
+        do {
+            let joinPush = try await channel.join()
+            let expectation = expectation(description: "ok was not triggered")
+            channel.messagePublisher
+                .compactMap { $0 }
+                .filter { $0.event == joinPush.refEvent }
+                .sink(receiveCompletion: { _ in },
+                      receiveValue: { _ in expectation.fulfill() })
+                .store(in: &cancellables)
 
-        await joinPush.trigger("ok", payload: [:])
-        await channel.leave(timeout: Defaults.timeoutInterval)
+            await joinPush.trigger("ok", payload: [:])
+            await channel.leave(timeout: Defaults.timeoutInterval)
 
-        await Task.yield()
-        await waitForExpectations(timeout: 3)
+            await Task.yield()
+            await waitForExpectations(timeout: 3)
 
-        let state = await channel.state
-        XCTAssert(state == .closed)
+            let state = await channel.state
+            XCTAssert(state == .closed)
 
-        await socket.onConnectionClosed(code: 1001)
-        XCTAssertFalse(errorCalled)
+            await socket.onConnectionClosed(code: 1001)
+            XCTAssertFalse(errorCalled)
+        } catch {
+            XCTFail("testOnConnectionClosedDoesNotTriggerErrorAfterLeave join threw an error")
+        }
     }
 
     // onConnectionClosed triggers onClose callbacks
@@ -258,12 +270,16 @@ extension SocketTests {
                   receiveValue: { _ in  errorCalled = true })
             .store(in: &cancellables)
 
-        await channel.join()
-        let state = await channel.state
-        XCTAssert(state == .joining)
+        do {
+            try await channel.join()
+            let state = await channel.state
+            XCTAssert(state == .joining)
 
-        await socket.onConnectionError(TestError.stub)
-        XCTAssert(errorCalled)
+            await socket.onConnectionError(TestError.stub)
+            XCTAssert(errorCalled)
+        } catch {
+            XCTFail("testOnConnectionErrorTriggerChannelErrorIfJoining join threw an error")
+        }
     }
 
     // onConnectionError triggers channel error if joined
@@ -279,24 +295,28 @@ extension SocketTests {
                   receiveValue: { _ in  errorCalled = true })
             .store(in: &cancellables)
 
-        let joinPush = await channel.join()
-        let expectation = expectation(description: "ok was not triggered")
-        channel.messagePublisher
-            .compactMap { $0 }
-            .filter { $0.event == joinPush.refEvent }
-            .sink(receiveCompletion: { _ in },
-                  receiveValue: { _ in expectation.fulfill() })
-            .store(in: &cancellables)
+        do {
+            let joinPush = try await channel.join()
+            let expectation = expectation(description: "ok was not triggered")
+            channel.messagePublisher
+                .compactMap { $0 }
+                .filter { $0.event == joinPush.refEvent }
+                .sink(receiveCompletion: { _ in },
+                      receiveValue: { _ in expectation.fulfill() })
+                .store(in: &cancellables)
 
-        await joinPush.trigger("ok", payload: [:])
-        await Task.yield()
-        await waitForExpectations(timeout: 3)
+            await joinPush.trigger("ok", payload: [:])
+            await Task.yield()
+            await waitForExpectations(timeout: 3)
 
-        let state = await channel.state
-        XCTAssert(state == .joined)
+            let state = await channel.state
+            XCTAssert(state == .joined)
 
-        await socket.onConnectionError(TestError.stub)
-        XCTAssert(errorCalled)
+            await socket.onConnectionError(TestError.stub)
+            XCTAssert(errorCalled)
+        } catch {
+            XCTFail("testOnConnectionErrorTriggerChannelErrorIfJoined join threw an error")
+        }
     }
 
     // onConnectionError does not trigger channel error after leave
@@ -312,23 +332,27 @@ extension SocketTests {
                   receiveValue: { _ in  errorCalled = true })
             .store(in: &cancellables)
 
-        let joinPush = await channel.join()
-        let expectation = expectation(description: "ok was not triggered")
-        channel.messagePublisher
-            .compactMap { $0 }
-            .filter { $0.event == joinPush.refEvent }
-            .sink(receiveCompletion: { _ in },
-                  receiveValue: { _ in expectation.fulfill() })
-            .store(in: &cancellables)
+        do {
+            let joinPush = try await channel.join()
+            let expectation = expectation(description: "ok was not triggered")
+            channel.messagePublisher
+                .compactMap { $0 }
+                .filter { $0.event == joinPush.refEvent }
+                .sink(receiveCompletion: { _ in },
+                      receiveValue: { _ in expectation.fulfill() })
+                .store(in: &cancellables)
 
-        await joinPush.trigger("ok", payload: [:])
-        await channel.leave(timeout: Defaults.timeoutInterval)
+            await joinPush.trigger("ok", payload: [:])
+            await channel.leave(timeout: Defaults.timeoutInterval)
 
-        await Task.yield()
-        await waitForExpectations(timeout: 3)
+            await Task.yield()
+            await waitForExpectations(timeout: 3)
 
-        await socket.onConnectionError(TestError.stub)
-        XCTAssertFalse(errorCalled)
+            await socket.onConnectionError(TestError.stub)
+            XCTAssertFalse(errorCalled)
+        } catch {
+            XCTFail("testOnConnectionErrorTriggerChannelErrorIfJoined join threw an error")
+        }
     }
 }
 

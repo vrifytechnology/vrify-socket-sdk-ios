@@ -303,10 +303,9 @@ public extension Channel {
     /// - parameter timeout: Optional. Defaults to Channel's timeout
     /// - return: Push event
     @discardableResult
-    func join(timeout: TimeInterval? = nil) async -> Push {
+    func join(timeout: TimeInterval? = nil) async throws -> Push {
         guard !joinedOnce else {
-            fatalError("tried to join multiple times. 'join' "
-                       + "can only be called a single time per channel instance")
+            throw ChannelError.alreadyJoined
         }
 
         // Join the Channel
@@ -329,8 +328,8 @@ public extension Channel {
     @discardableResult
     func createPush(_ event: String,
                     payload: Payload,
-                    timeout: TimeInterval) -> Push {
-        guard joinedOnce else { fatalError("Pushed \(event) to \(self.topic) before joining. See: channel.join()") }
+                    timeout: TimeInterval) throws -> Push {
+        guard joinedOnce else { throw ChannelError.pushedBeforeJoined }
 
         return Push(channel: self,
                     event: event,
@@ -345,8 +344,8 @@ public extension Channel {
     ///     channel.send(push)
     ///
     /// - parameter push: Push object to send over the Socket
-    func send(_ push: Push) async {
-        guard joinedOnce else { fatalError("Pushed \(push.event) to \(self.topic) before joining. See: join()") }
+    func send(_ push: Push) async throws {
+        guard joinedOnce else { throw ChannelError.pushedBeforeJoined }
 
         if canPush {
             await push.send()
@@ -542,12 +541,21 @@ extension Channel {
 
 }
 
-private extension Channel {
-    private func update(state: ChannelState) async {
-        self.state = state
+// Extensions containing actor isolated mutators primarily for testing
+internal extension Channel {
+    func clearPushBuffer() async {
+        self.pushBuffer = []
     }
 
-    private func clearPushBuffer() async {
-        self.pushBuffer = []
+    func update(params: Payload) {
+        self.params = params
+    }
+
+    func update(rejoinTimer: TimeoutTimer) async {
+        self.rejoinTimer = rejoinTimer
+    }
+
+    func update(state: ChannelState) async {
+        self.state = state
     }
 }

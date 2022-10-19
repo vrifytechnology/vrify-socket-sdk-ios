@@ -527,7 +527,35 @@
 // }
 //
 //// swiftlint:disable:next type_body_length
-// class SocketMock: Socket {
+class SocketMock: Socket {
+    var pushCallsCount = 0
+    var pushCalled: Bool {
+        return pushCallsCount > 0
+    }
+
+    // swiftlint:disable large_tuple
+    var pushArguments: (topic: String, event: String, payload: Payload, ref: String?, joinRef: String?)?
+    var pushTopicEventPayloadRefJoinRefClosure: ((String, String, Payload, String?, String?) -> Void)?
+
+    override func push(topic: String,
+                       event: String,
+                       payload: Payload,
+                       ref: String? = nil,
+                       joinRef: String? = nil) {
+        pushCallsCount += 1
+        pushArguments = (topic: topic, event: event, payload: payload, ref: ref, joinRef: joinRef)
+        pushTopicEventPayloadRefJoinRefClosure?(topic, event, payload, ref, joinRef)
+    }
+
+    var makeRefCallsCount = 0
+    var makeRefClosure: (() -> String)?
+    var makeRefReturnValue: String!
+
+    override func makeRef() -> String {
+        makeRefCallsCount += 1
+        return makeRefClosure.map({ $0() }) ?? makeRefReturnValue
+    }
+}
 //    override var endPointUrl: URL {
 //        get { return underlyingEndPointUrl }
 //        set(value) { underlyingEndPointUrl = value }
@@ -873,22 +901,7 @@
 //        return pushTopicEventPayloadRefJoinRefCallsCount > 0
 //    }
 //    // swiftlint:disable:next large_tuple
-//    var pushTopicEventPayloadRefJoinRefReceivedArguments: (topic: String,
-//                                                           event: String,
-//                                                           payload: Payload,
-//                                                           ref: String?,
-//                                                           joinRef: String?)?
-//    var pushTopicEventPayloadRefJoinRefClosure: ((String, String, Payload, String?, String?) -> Void)?
 //
-//    override func push(topic: String,
-//                       event: String,
-//                       payload: Payload,
-//                       ref: String? = nil,
-//                       joinRef: String? = nil) {
-//        pushTopicEventPayloadRefJoinRefCallsCount += 1
-//        pushTopicEventPayloadRefJoinRefReceivedArguments = (topic: topic, event: event, payload: payload, ref: ref, joinRef: joinRef)
-//        pushTopicEventPayloadRefJoinRefClosure?(topic, event, payload, ref, joinRef)
-//    }
 //
 //    // MARK: - makeRef
 //

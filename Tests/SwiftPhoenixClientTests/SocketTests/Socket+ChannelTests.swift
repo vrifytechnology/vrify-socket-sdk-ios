@@ -13,7 +13,7 @@ import Combine
 extension SocketTests {
     // returns channel with given topic and params
     func testCreateChannel() async {
-        let socket = createTestSocket()
+        let socket = createSocketTestsSocket()
         let channel = await socket.channel("topic", params: ["one": "two"])
         socket.ref = 1006
 
@@ -28,7 +28,7 @@ extension SocketTests {
 
     // adds channel to sockets channel list
     func testAddChannelToSocketsList() async {
-        let socket = createTestSocket()
+        let socket = createSocketTestsSocket()
         XCTAssert(socket.channels.isEmpty)
 
         let channel = await socket.channel("topic", params: ["one": "two"])
@@ -38,7 +38,7 @@ extension SocketTests {
 
     // removes given channel from channels
     func testRemoveChannel() async {
-        let socket = createTestSocket()
+        let socket = createSocketTestsSocket()
         let channel1 = await socket.channel("topic-1")
         let channel2 = await socket.channel("topic-2")
 

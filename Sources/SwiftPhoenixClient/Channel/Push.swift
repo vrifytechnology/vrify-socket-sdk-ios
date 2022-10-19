@@ -121,9 +121,7 @@ extension Push {
         /// and match the recevied event to it's corresponding
         channel.messagePublisher
             .compactMap { $0 }
-            .filter {
-                $0.event == refEvent && $0.ref == ref
-            }
+            .filter { $0.event == refEvent && $0.ref == ref }
             .sink(receiveCompletion: { [weak self] in
                 if case .failure(let error) = $0,
                    self?.pushResponse.value == nil {
@@ -141,6 +139,7 @@ extension Push {
         channel.messagePublisher
             .compactMap { $0 }
             .filter { $0.event == refEvent && $0.ref == ref }
+        // Todo: Investigate using .first() here so that a timeout is never trigged after a valid response to the push
             .timeout(.seconds(timeout),
                      scheduler: DispatchQueue.global(),
                      customError: { [self] in .timeout(event: event, payload: payload) })
