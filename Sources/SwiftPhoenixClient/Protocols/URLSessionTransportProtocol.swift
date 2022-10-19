@@ -6,6 +6,8 @@
 //  Copyright © 2022 SwiftPhoenixClient. All rights reserved.
 //
 
+import Foundation
+
 // ----------------------------------------------------------------------
 // MARK: - Transport Protocol
 // ----------------------------------------------------------------------
