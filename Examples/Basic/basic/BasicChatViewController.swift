@@ -125,21 +125,23 @@ class BasicChatViewController: UIViewController {
         let payload = ["user": username, "body": messageField.text!]
 
         Task {
-            let push = await self.lobbyChannel.createPush("new:msg",
-                                                          payload: payload,
-                                                          timeout: Defaults.timeoutInterval)
-            push.pushResponse
-                .compactMap { $0 }
-                .sink(receiveCompletion: {
-                    if case let .failure(error) = $0 {
-                        print("error: ", error.localizedDescription)
-                    }
-                }, receiveValue: {
-                    print("success", $0)
-                })
-                .store(in: &cancellables)
+            do {
+                let push = try await self.lobbyChannel.createPush("new:msg",
+                                                              payload: payload,
+                                                              timeout: Defaults.timeoutInterval)
+                push.pushResponse
+                    .compactMap { $0 }
+                    .sink(receiveCompletion: {
+                        if case let .failure(error) = $0 {
+                            print("error: ", error.localizedDescription)
+                        }
+                    }, receiveValue: {
+                        print("success", $0)
+                    })
+                    .store(in: &cancellables)
 
-            await self.lobbyChannel.send(push)
+                try await self.lobbyChannel.send(push)
+            } catch { }
         }
 
         messageField.text = ""
@@ -188,29 +190,30 @@ class BasicChatViewController: UIViewController {
     }
 
     private func connectAndJoin() async {
-        lobbyChannel = await socket.channel(topic, params: ["status": "joining"])
-        createLobbyChannelEventHandlers()
-        await lobbyChannel?
-            .join()
-            .pushResponse
-            .compactMap { $0 }
-            .sink(receiveCompletion: {
-                if case let .failure(error) = $0 {
-                    self.addText("Failed to join lobby channel: \(error)")
-                }
-            }, receiveValue: { _ in
-                self.addText("Joined Channel")
-            })
-            .store(in: &cancellables)
+        do {
+            lobbyChannel = await socket.channel(topic, params: ["status": "joining"])
+            createLobbyChannelEventHandlers()
+            try await lobbyChannel?
+                .join()
+                .pushResponse
+                .compactMap { $0 }
+                .sink(receiveCompletion: {
+                    if case let .failure(error) = $0 {
+                        self.addText("Failed to join lobby channel: \(error)")
+                    }
+                }, receiveValue: { _ in
+                    self.addText("Joined Channel")
+                })
+                .store(in: &cancellables)
 
-        self.socket.connect()
+            self.socket.connect()
 
+        } catch { }
     }
 
     private func createLobbyChannelEventHandlers() {
         lobbyChannel?
-            .messagePublisher
-            .filter { $0.event == "join" }
+            .on("join")
             .sink(receiveCompletion: {
                 switch $0 {
                 case .failure(let error):
@@ -222,8 +225,7 @@ class BasicChatViewController: UIViewController {
             .store(in: &cancellables)
 
         lobbyChannel?
-            .messagePublisher
-            .filter { $0.event == "new:msg" }
+            .on("new:msg")
             .sink(receiveCompletion: {
                 if case .failure(let error) = $0 {
                     self.addText("Error waiting for new:msg - \(error)")
@@ -239,8 +241,7 @@ class BasicChatViewController: UIViewController {
             .store(in: &cancellables)
 
         lobbyChannel?
-            .messagePublisher
-            .filter { $0.event == "new:msg" }
+            .on("new:msg")
             .sink(receiveCompletion: {
                 if case .failure(let error) = $0 {
                     self.addText("Error waiting for user:entered - \(error)")

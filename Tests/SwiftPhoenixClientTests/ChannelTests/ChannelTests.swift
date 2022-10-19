@@ -32,10 +32,9 @@ class ChannelTests: XCTestCase {
         return socket
     }
 
-    func createJoinableTestChannel() async -> Channel {
-        let mockWebSocket = URLSessionTransportMock()
-        mockWebSocket.readyState = .open
-        let mockSocket = createTestChannelSocket(webSocket: mockWebSocket)
+    func createJoinableTestChannel(webSocket: URLSessionTransportMock = URLSessionTransportMock()) async -> Channel {
+        webSocket.readyState = .open
+        let mockSocket = createTestChannelSocket(webSocket: webSocket)
         let channel = await Channel(topic: "topic", params: ["one": "two"], socket: mockSocket)
         // mockSocket.channelParamsReturnValue = channel
         return channel

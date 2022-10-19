@@ -229,8 +229,8 @@ public final class Presence {
         // Do not subscribe to events if they were not provided
         guard let stateEvent = opts.events[.state] else { return }
 
-        self.channel?.messagePublisher
-            .filter { $0.event == stateEvent }
+        self.channel?
+            .on(stateEvent)
             .sink(receiveCompletion: { [weak self] in
                 if case let .failure(error) = $0 {
                     Task { [weak self] in
@@ -266,8 +266,8 @@ public final class Presence {
          // Do not subscribe to events if they were not provided
         guard let diffEvent = opts.events[.diff] else { return }
 
-        self.channel?.messagePublisher
-            .filter { $0.event == diffEvent }
+        self.channel?
+            .on(diffEvent)
             .sink(receiveCompletion: { [weak self] in
                 if case let .failure(error) = $0 {
                     Task { [weak self] in

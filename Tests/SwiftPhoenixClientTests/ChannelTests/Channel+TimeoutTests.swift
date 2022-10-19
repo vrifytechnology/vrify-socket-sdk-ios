@@ -85,9 +85,14 @@ extension ChannelTests {
             fakeClock.tick(0.100)
 
             let expectation = expectation(description: "ok was not triggered")
-            channel.messagePublisher
-                .compactMap { $0 }
-                .filter { $0.event == joinPush.refEvent }
+
+            guard let refEvent = joinPush.refEvent else {
+                XCTFail("Missing Ref Event")
+                return
+            }
+
+            channel
+                .on(refEvent)
                 .sink(receiveCompletion: { _ in },
                       receiveValue: { _ in expectation.fulfill() })
                 .store(in: &cancellables)

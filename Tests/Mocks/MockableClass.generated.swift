@@ -864,20 +864,7 @@ class SocketMock: Socket {
 //        return channelParamsClosure.map({ $0(topic, params) }) ?? channelParamsReturnValue
 //    }
 //
-//    // MARK: - remove
-//
-//    var removeCallsCount = 0
-//    var removeCalled: Bool {
-//        return removeCallsCount > 0
-//    }
-//    var removeReceivedChannel: Channel?
-//    var removeClosure: ((Channel) -> Void)?
-//
-//    override func remove(_ channel: Channel) {
-//        removeCallsCount += 1
-//        removeReceivedChannel = channel
-//        removeClosure?(channel)
-//    }
+
 //
 //    // MARK: - off
 //

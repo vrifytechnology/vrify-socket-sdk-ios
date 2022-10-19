@@ -337,6 +337,16 @@ public extension Channel {
                     timeout: timeout)
     }
 
+    /// Monitors the channel for specific events
+    /// 
+    /// - Parameter event: event name
+    /// - Returns: PassthroughSubject<Message, PushError>
+    @discardableResult
+    nonisolated func on(_ event: String) -> Publishers.Filter<PassthroughSubject<Message, PushError>> {
+        messagePublisher
+            .filter { $0.event == event }
+    }
+
     /// Sends a Push over the Socket for the Channel
     ///
     /// Example:

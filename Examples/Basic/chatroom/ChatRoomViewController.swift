@@ -84,12 +84,16 @@ class ChatRoomViewController: UIViewController {
     @IBAction func onSendButtonPressed(_ sender: Any) {
         let payload = ["name": username, "message": messageInput.text!]
         Task {
-            // Create and send the payload
-            let push = await self.lobbyChannel?.createPush("shout", payload: payload, timeout: Defaults.timeoutInterval)
-            await push?.send()
+            do {
+                // Create and send the payload
+                let push = try await self.lobbyChannel?.createPush("shout",
+                                                                   payload: payload,
+                                                                   timeout: Defaults.timeoutInterval)
+                await push?.send()
 
-            // Clear the text intput
-            self.messageInput.text = ""
+                // Clear the text intput
+                self.messageInput.text = ""
+            } catch { }
         }
     }
 
@@ -152,9 +156,7 @@ class ChatRoomViewController: UIViewController {
         let channel = await socket.channel(topic, params: ["status": "joining"])
 
         channel
-            .messagePublisher
-            .compactMap { $0 }
-            .filter { $0.event == "shout" }
+            .on("shout")
             .receive(on: DispatchQueue.main)
             .sink(receiveCompletion: {
                 if case let .failure(error) = $0 {
@@ -175,22 +177,24 @@ class ChatRoomViewController: UIViewController {
             })
             .store(in: &cancellables)
 
-        await channel
-            .join()
-            .pushResponse
-            .compactMap { $0 }
-            .sink(receiveCompletion: {
-                if case let .failure(error) = $0 {
-                    print("CHANNEL: rooms:lobby failed to join. \(error.localizedDescription)")
-                }
-            }, receiveValue: { _ in
-                print("CHANNEL: rooms:lobby joined")
-            })
-            .store(in: &cancellables)
+        do {
+            try await channel
+                .join()
+                .pushResponse
+                .compactMap { $0 }
+                .sink(receiveCompletion: {
+                    if case let .failure(error) = $0 {
+                        print("CHANNEL: rooms:lobby failed to join. \(error.localizedDescription)")
+                    }
+                }, receiveValue: { _ in
+                    print("CHANNEL: rooms:lobby joined")
+                })
+                .store(in: &cancellables)
 
-        // Now connect the socket and join the channel
-        self.lobbyChannel = channel
-        self.socket.connect()
+            // Now connect the socket and join the channel
+            self.lobbyChannel = channel
+            self.socket.connect()
+        } catch { }
     }
 
     private func disconnectFromChat() {

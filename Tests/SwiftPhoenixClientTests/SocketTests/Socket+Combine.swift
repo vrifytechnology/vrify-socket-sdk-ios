@@ -126,8 +126,8 @@ extension SocketTests {
         let channel = await socket.channel("topic")
         var errorCalled = false
 
-        channel.messagePublisher
-            .filter { $0.event == ChannelEvent.error }
+        channel
+            .on(ChannelEvent.error)
             .sink(receiveCompletion: { _ in },
                   receiveValue: { _ in errorCalled = true })
             .store(in: &cancellables)
@@ -150,8 +150,8 @@ extension SocketTests {
         let channel = await socket.channel("topic")
         var errorCalled = false
 
-        channel.messagePublisher
-            .filter { $0.event == ChannelEvent.error }
+        channel
+            .on(ChannelEvent.error)
             .sink(receiveCompletion: { _ in },
                   receiveValue: { _ in errorCalled = true })
             .store(in: &cancellables)
@@ -159,9 +159,14 @@ extension SocketTests {
         do {
             let joinPush = try await channel.join()
             let expectation = expectation(description: "ok was not triggered")
-            channel.messagePublisher
-                .compactMap { $0 }
-                .filter { $0.event == joinPush.refEvent }
+
+            guard let refEvent = joinPush.refEvent else {
+                XCTFail("Missing Ref Event")
+                return
+            }
+
+            channel
+                .on(refEvent)
                 .sink(receiveCompletion: { _ in },
                       receiveValue: { _ in expectation.fulfill() })
                 .store(in: &cancellables)
@@ -186,8 +191,8 @@ extension SocketTests {
         let channel = await socket.channel("topic")
         var errorCalled = false
 
-        channel.messagePublisher
-            .filter { $0.event == ChannelEvent.error }
+        channel
+            .on(ChannelEvent.error)
             .sink(receiveCompletion: { _ in },
                   receiveValue: { _ in errorCalled = true })
             .store(in: &cancellables)
@@ -195,9 +200,14 @@ extension SocketTests {
         do {
             let joinPush = try await channel.join()
             let expectation = expectation(description: "ok was not triggered")
-            channel.messagePublisher
-                .compactMap { $0 }
-                .filter { $0.event == joinPush.refEvent }
+
+            guard let refEvent = joinPush.refEvent else {
+                XCTFail("Missing Ref Event")
+                return
+            }
+
+            channel
+                .on(refEvent)
                 .sink(receiveCompletion: { _ in },
                       receiveValue: { _ in expectation.fulfill() })
                 .store(in: &cancellables)
@@ -264,8 +274,7 @@ extension SocketTests {
         var errorCalled = false
 
         channel
-            .messagePublisher
-            .filter { $0.event == ChannelEvent.error }
+            .on(ChannelEvent.error)
             .sink(receiveCompletion: { _ in },
                   receiveValue: { _ in  errorCalled = true })
             .store(in: &cancellables)
@@ -289,8 +298,7 @@ extension SocketTests {
         var errorCalled = false
 
         channel
-            .messagePublisher
-            .filter { $0.event == ChannelEvent.error }
+            .on(ChannelEvent.error)
             .sink(receiveCompletion: { _ in },
                   receiveValue: { _ in  errorCalled = true })
             .store(in: &cancellables)
@@ -298,9 +306,14 @@ extension SocketTests {
         do {
             let joinPush = try await channel.join()
             let expectation = expectation(description: "ok was not triggered")
-            channel.messagePublisher
-                .compactMap { $0 }
-                .filter { $0.event == joinPush.refEvent }
+
+            guard let refEvent = joinPush.refEvent else {
+                XCTFail("Missing Ref Event")
+                return
+            }
+
+            channel
+                .on(refEvent)
                 .sink(receiveCompletion: { _ in },
                       receiveValue: { _ in expectation.fulfill() })
                 .store(in: &cancellables)
@@ -326,8 +339,7 @@ extension SocketTests {
         var errorCalled = false
 
         channel
-            .messagePublisher
-            .filter { $0.event == ChannelEvent.error }
+            .on(ChannelEvent.error)
             .sink(receiveCompletion: { _ in },
                   receiveValue: { _ in  errorCalled = true })
             .store(in: &cancellables)
@@ -335,9 +347,14 @@ extension SocketTests {
         do {
             let joinPush = try await channel.join()
             let expectation = expectation(description: "ok was not triggered")
-            channel.messagePublisher
-                .compactMap { $0 }
-                .filter { $0.event == joinPush.refEvent }
+
+            guard let refEvent = joinPush.refEvent else {
+                XCTFail("Missing Ref Event")
+                return
+            }
+
+            channel
+                .on(refEvent)
                 .sink(receiveCompletion: { _ in },
                       receiveValue: { _ in expectation.fulfill() })
                 .store(in: &cancellables)
@@ -365,18 +382,14 @@ extension SocketTests {
 
         var targetMessage: Message?
         targetChannel
-            .messagePublisher
-            .compactMap { $0 }
-            .filter { $0.event == "event" }
+            .on("event")
             .sink(receiveCompletion: { _ in },
                   receiveValue: { targetMessage = $0 })
             .store(in: &cancellables)
 
         var otherMessage: Message?
         otherChannel
-            .messagePublisher
-            .compactMap { $0 }
-            .filter { $0.event == "event" }
+            .on("event")
             .sink(receiveCompletion: { _ in },
                   receiveValue: { otherMessage = $0 })
             .store(in: &cancellables)

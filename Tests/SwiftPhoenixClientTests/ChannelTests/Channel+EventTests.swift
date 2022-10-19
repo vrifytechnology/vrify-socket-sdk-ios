@@ -10,59 +10,110 @@ import XCTest
 import Combine
 @testable import SwiftPhoenixClient
 
-//
-//        describe("onClose") {
-//
-//            beforeEach {
-//                mockClient.readyState = .open
-//                channel.join()
-//            }
-//
-//            it("sets state to closed", closure: {
-//                XCTAssert(channel.state).toNot(equal(.closed))
-//                channel.trigger(event: ChannelEvent.close)
-//                XCTAssert(channel.state == .closed))
-//            })
-//
-//            it("does not rejoin", closure: {
-//                let mockJoinPush = PushMock(channel: channel, event: "phx_join")
-//                channel.joinPush = mockJoinPush
-//
-//                channel.trigger(event: ChannelEvent.close)
-//
-//                fakeClock.tick(1.0)
-//                XCTAssert(mockJoinPush.sendCalled).to(beFalse())
-//
-//                fakeClock.tick(2.0)
-//                XCTAssert(mockJoinPush.sendCalled).to(beFalse())
-//            })
-//
-//            it("resets the rejoin timer", closure: {
-//                let mockRejoinTimer = TimeoutTimerMock()
-//                channel.rejoinTimer = mockRejoinTimer
-//
-//                channel.trigger(event: ChannelEvent.close)
-//                XCTAssert(mockRejoinTimer.resetCalled).to(beTrue())
-//            })
-//
-//            it("removes self from socket", closure: {
-//                channel.trigger(event: ChannelEvent.close)
-//                XCTAssert(mockSocket.removeCalled).to(beTrue())
-//
-//                let removedChannel = mockSocket.removeReceivedChannel
-//                XCTAssert(removedChannel === channel).to(beTrue())
-//            })
-//
-//            it("triggers additional callbacks", closure: {
-//                var onCloseCallCount = 0
-//                channel.onClose({ (_) in
-//                    onCloseCallCount += 1
-//                })
-//
-//                channel.trigger(event: ChannelEvent.close)
-//                XCTAssert(onCloseCallCount == 1))
-//            })
-//        }
+extension ChannelTests {
+    // onClose sets state to closed
+    func testOnCloseSetsChannelStateClosed() async {
+        do {
+            let channel = await createJoinableTestChannel()
+            try await channel.join()
+
+            var state = await channel.state
+            XCTAssertFalse(state == .closed)
+
+            let expectation = expectation(description: "expected close response")
+            channel
+                .on(ChannelEvent.close)
+                .sink(receiveCompletion: { _ in },
+                      receiveValue: { _ in expectation.fulfill() })
+                .store(in: &cancellables)
+
+            await channel.trigger(event: ChannelEvent.close)
+            await waitForExpectations(timeout: 3)
+            state = await channel.state
+            XCTAssert(state == .closed)
+        } catch {
+            XCTFail("testOnCloseSetsChannelStateClosed failed to join channel")
+        }
+    }
+
+    // onClose resets the rejoin timer
+    func testOnCloseResetsTimer() async {
+        do {
+            let channel = await createJoinableTestChannel()
+            let mockRejoinTimer = TimeoutTimerMock()
+            await channel.update(rejoinTimer: mockRejoinTimer)
+            try await channel.join()
+
+            var state = await channel.state
+            XCTAssertFalse(state == .closed)
+
+            let expectation = expectation(description: "expected close response")
+            channel
+                .on(ChannelEvent.close)
+                .sink(receiveCompletion: { _ in },
+                      receiveValue: { _ in expectation.fulfill() })
+                .store(in: &cancellables)
+
+            await channel.trigger(event: ChannelEvent.close)
+            await waitForExpectations(timeout: 3)
+            state = await channel.state
+            XCTAssert(state == .closed)
+            XCTAssert(mockRejoinTimer.resetCalled)
+        } catch {
+            XCTFail("testOnCloseSetsChannelStateClosed failed to join channel")
+        }
+    }
+
+    // onClose removes self from socket
+    func testOnCloseRemovesChannelFromSocket() async {
+        do {
+            let webSocket = URLSessionTransportMock()
+            webSocket.readyState = .open
+            let mockSocket = createTestChannelSocket(webSocket: webSocket)
+            let channel = await mockSocket.channel("topic")
+            try await channel.join()
+
+            let expectation = expectation(description: "expected close response")
+            channel
+                .on(ChannelEvent.close)
+                .debounce(for: 0.2, scheduler: DispatchQueue.global())
+                .sink(receiveCompletion: { _ in },
+                      receiveValue: { _ in expectation.fulfill() })
+                .store(in: &cancellables)
+
+            XCTAssert(mockSocket.channels.count == 1)
+            await channel.trigger(event: ChannelEvent.close)
+            await waitForExpectations(timeout: 3)
+
+            XCTAssert(mockSocket.channels.isEmpty)
+        } catch {
+            XCTFail("testOnCloseSetsChannelStateClosed failed to join channel")
+        }
+    }
+
+    // onClose pushes can not send
+    func testOnClosePushesCanNotSend() async {
+        do {
+            let channel = await createJoinableTestChannel()
+            try await channel.join()
+
+            let expectation = expectation(description: "expected close response")
+            channel
+                .on(ChannelEvent.close)
+                .sink(receiveCompletion: { _ in },
+                      receiveValue: { _ in expectation.fulfill() })
+                .store(in: &cancellables)
+
+            await channel.trigger(event: ChannelEvent.close)
+            await waitForExpectations(timeout: 3)
+
+            let canPush = await channel.canPush
+            XCTAssertFalse(canPush)
+        } catch {
+            XCTFail("testOnCloseSetsChannelStateClosed failed to join channel")
+        }
+    }
+}
 
 //        describe("on") {
 //            beforeEach {

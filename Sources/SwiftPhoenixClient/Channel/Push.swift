@@ -120,7 +120,6 @@ extension Push {
         /// If a response is received  before the Timer triggers, cancel timer
         /// and match the recevied event to it's corresponding
         channel.messagePublisher
-            .compactMap { $0 }
             .filter { $0.event == refEvent && $0.ref == ref }
             .sink(receiveCompletion: { [weak self] in
                 if case .failure(let error) = $0,
@@ -137,7 +136,6 @@ extension Push {
         /// If a response is received  before the Timer triggers, cancel timer
         /// and match the recevied event to it's corresponding
         channel.messagePublisher
-            .compactMap { $0 }
             .filter { $0.event == refEvent && $0.ref == ref }
         // Todo: Investigate using .first() here so that a timeout is never trigged after a valid response to the push
             .timeout(.seconds(timeout),
