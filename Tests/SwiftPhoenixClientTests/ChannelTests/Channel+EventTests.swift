@@ -113,52 +113,39 @@ extension ChannelTests {
             XCTFail("testOnCloseSetsChannelStateClosed failed to join channel")
         }
     }
-}
 
-//        describe("on") {
-//            beforeEach {
-//                mockSocket.makeRefClosure = nil
-//                mockSocket.makeRefReturnValue = kDefaultRef
-//            }
-//
-//            it("sets up callback for event", closure: {
-//                var onCallCount = 0
-//
-//                channel.trigger(event: "event", ref: kDefaultRef)
-//                XCTAssert(onCallCount == 0))
-//
-//                channel.on("event", callback: { (_) in
-//                    onCallCount += 1
-//                })
-//
-//                channel.trigger(event: "event", ref: kDefaultRef)
-//                XCTAssert(onCallCount == 1))
-//            })
-//
-//            it("other event callbacks are ignored", closure: {
-//                var onCallCount = 0
-//                let ignoredOnCallCount = 0
-//
-//                channel.trigger(event: "event", ref: kDefaultRef)
-//                XCTAssert(ignoredOnCallCount == 0))
-//
-//                channel.on("event", callback: { (_) in
-//                    onCallCount += 1
-//                })
-//
-//                channel.trigger(event: "event", ref: kDefaultRef)
-//                XCTAssert(ignoredOnCallCount == 0))
-//            })
-//
-//            it("generates unique refs for callbacks ", closure: {
-//                let ref1 = channel.on("event1", callback: { _ in })
-//                let ref2 = channel.on("event2", callback: { _ in })
-//                XCTAssert(ref1).toNot(equal(ref2))
-//                XCTAssert(ref1 + 1 == ref2))
-//
-//            })
-//        }
-//
+    // on call back
+    func testOnCallback() async {
+        let channel = await createJoinableTestChannel()
+
+        do {
+            let expectation = expectation(description: "join expected ok response")
+            expectation.expectedFulfillmentCount = 2
+            let joinPush = try await channel.join()
+
+            joinPush
+                .pushResponse
+                .compactMap { $0 }
+                .filter { $0.status == "ok" }
+                .sink(receiveCompletion: { _ in },
+                      receiveValue: { _ in expectation.fulfill() })
+                .store(in: &cancellables)
+
+            channel
+                .on("event")
+                .sink(receiveCompletion: { _ in },
+                      receiveValue: { _ in expectation.fulfill() })
+                .store(in: &cancellables)
+
+            await channel.joinPush.trigger("ok", payload: ["a": "b"])
+            await channel.trigger(event: "event")
+            await Task.yield()
+            await waitForExpectations(timeout: 3)
+        } catch {
+            XCTFail("testChannelPushSendsPushEventWhenJoined Join threw an error")
+        }
+    }
+}
 
 //
 //        describe("onError") {

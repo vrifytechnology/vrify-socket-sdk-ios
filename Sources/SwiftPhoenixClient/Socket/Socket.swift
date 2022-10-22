@@ -138,7 +138,7 @@ public class Socket {
     internal var ref: UInt64 = UInt64.min // 0 (max: 18,446,744,073,709,551,615)
 
     /// Timer that triggers sending new Heartbeat messages
-    internal var heartbeatTimer: HeartbeatTimer?
+    internal var heartbeatTimer: Timer?
 
     /// Ref counter for the last heartbeat that was sent
     internal var pendingHeartbeatRef: String?
@@ -186,7 +186,6 @@ public class Socket {
         self.endPointUrl = Socket.buildEndpointUrl(endpoint: endPoint,
                                                    paramsClosure: paramsClosure,
                                                    vsn: vsn)
-
         self.reconnectTimer = TimeoutTimer()
         self.reconnectTimer.callback = { [weak self] in
             self?.logItems("Socket attempting to reconnect")
@@ -318,7 +317,7 @@ extension Socket {
         self.connection = nil
 
         // The socket connection has been torndown, heartbeats are not needed
-        self.heartbeatTimer?.stop()
+        self.heartbeatTimer?.invalidate()
 
         // Since the connection's delegate was nil'd out, inform all state
         // callbacks that the connection has closed
@@ -403,8 +402,8 @@ extension Socket {
         // Send an error to all channels
         await self.triggerChannelError()
 
-        // Prevent the heartbeat from triggering if the
-        self.heartbeatTimer?.stop()
+        // Prevent the heartbeat from triggering if the connection is closed
+        self.heartbeatTimer?.invalidate()
 
         // Only attempt to reconnect if the socket did not close normally,
         // or if it was closed abnormally but on client side (e.g. due to heartbeat timeout)
@@ -527,15 +526,15 @@ extension Socket {
     internal func resetHeartbeat() {
         // Clear anything related to the heartbeat
         self.pendingHeartbeatRef = nil
-        self.heartbeatTimer?.stop()
+        self.heartbeatTimer?.invalidate()
 
         // Do not start up the heartbeat timer if skipHeartbeat is true
         guard !skipHeartbeat else { return }
 
-        self.heartbeatTimer = HeartbeatTimer(timeInterval: heartbeatInterval)
-        self.heartbeatTimer?.start(eventHandler: { [weak self] in
+        self.heartbeatTimer = Timer.scheduledTimer(withTimeInterval: heartbeatInterval,
+                                                   repeats: true) { [weak self] _ in
             self?.sendHeartbeat()
-        })
+        }
     }
 
     /// Sends a hearbeat payload to the phoenix serverss

@@ -175,16 +175,29 @@ private extension Channel {
     }
 
     func setupChannelEventHandlers() {
-        /// Perfom when the Channel has been closed
+        // Log any errors or completions the Publisher recieves. Especially in the cause it to completed
+        // with an error.
         messagePublisher
-            .filter { $0.event == ChannelEvent.close }
             .sink(receiveCompletion: { [weak self] in
-                if case let .failure(error) = $0 {
+                switch $0 {
+                case .failure(let error):
                     Task { [weak self] in
-                        await self?.socket?.logItems("presence", "Push failed due to error: \(error)")
+                        await self?.socket?.logItems("Channel \(String(describing: self?.topic))",
+                                                     "Message Publisher failed with error: \(error)")
+                    }
+                case .finished:
+                    Task { [weak self] in
+                        await self?.socket?.logItems("Channel \(String(describing: self?.topic))",
+                                                     "Message Publisher completed.")
                     }
                 }
-            }, receiveValue: { [weak self] _ in
+            }, receiveValue: { _ in })
+            .store(in: &cancellables)
+
+        /// Perfom when the Channel has been closed. Ignore completions, they are already logged above.
+        on(ChannelEvent.close)
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { [weak self] _ in
                 Task { [weak self] in
                     // Reset any timer that may be on-going
                     await self?.rejoinTimer.reset()
@@ -202,16 +215,10 @@ private extension Channel {
             })
             .store(in: &cancellables)
 
-        /// Perfom when the Channel errors
-        messagePublisher
-            .filter { $0.event == ChannelEvent.error }
-            .sink(receiveCompletion: { [weak self] in
-                if case let .failure(error) = $0 {
-                    Task { [weak self] in
-                        await self?.socket?.logItems("channel", "Push failed due to error: \(error)")
-                    }
-                }
-            }, receiveValue: { [weak self] message in
+        /// Perfom when the Channel errors. Ignore completions, they are already logged above.
+        on(ChannelEvent.error)
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { [weak self] message in
                 Task { [weak self] in
                     // Log that the channel received an error
                     await self?.socket?.logItems("channel",
@@ -239,16 +246,10 @@ private extension Channel {
             })
             .store(in: &cancellables)
 
-        // Perform when the join reply is received
-        messagePublisher
-            .filter { $0.event == ChannelEvent.reply }
-            .sink(receiveCompletion: { [weak self] in
-                if case let .failure(error) = $0 {
-                    Task { [weak self] in
-                        await self?.socket?.logItems("presence", "Push failed due to error: \(error)")
-                    }
-                }
-            }, receiveValue: { [weak self] message in
+        // Perform when the join reply is received. Ignore completions, they are already logged above.
+        on(ChannelEvent.reply)
+            .sink(receiveCompletion: { _ in },
+                  receiveValue: { [weak self] message in
                 Task { [weak self] in
                     guard let event = await self?.replyEventName(message.ref) else { return }
                     await self?.trigger(event: event,
@@ -338,7 +339,7 @@ public extension Channel {
     }
 
     /// Monitors the channel for specific events
-    /// 
+    ///
     /// - Parameter event: event name
     /// - Returns: PassthroughSubject<Message, PushError>
     @discardableResult

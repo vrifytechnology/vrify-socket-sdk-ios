@@ -121,6 +121,8 @@ extension Push {
         /// and match the recevied event to it's corresponding
         channel.messagePublisher
             .filter { $0.event == refEvent && $0.ref == ref }
+        // Todo: Investigate using .first() here so that this is a one time
+        // event and an error can never be trigged mistakenly
             .sink(receiveCompletion: { [weak self] in
                 if case .failure(let error) = $0,
                    self?.pushResponse.value == nil {
@@ -133,8 +135,6 @@ extension Push {
     }
 
     func setupTimeoutableMessageCancellable(_ channel: Channel, _ refEvent: String, _ ref: String) {
-        /// If a response is received  before the Timer triggers, cancel timer
-        /// and match the recevied event to it's corresponding
         channel.messagePublisher
             .filter { $0.event == refEvent && $0.ref == ref }
         // Todo: Investigate using .first() here so that a timeout is never trigged after a valid response to the push

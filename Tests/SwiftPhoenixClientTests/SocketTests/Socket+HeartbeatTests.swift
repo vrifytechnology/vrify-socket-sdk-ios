@@ -12,12 +12,8 @@ import Combine
 @testable import SwiftPhoenixClient
 
 extension SocketTests {
-    private func createHeartbeatTestSocket(timeoutTimer: TimeoutTimer = TimeoutTimerMock(),
-                                           webSocket: URLSessionTransportMock = URLSessionTransportMock()) -> Socket {
+    private func createHeartbeatTestSocket(webSocket: URLSessionTransportMock = URLSessionTransportMock()) -> Socket {
         let socket = Socket(endPoint: "/socket", transport: { _ in webSocket })
-        socket.reconnectAfter = { _ in return 10 }
-        socket.reconnectTimer = timeoutTimer
-
         webSocket.readyState = .open
         socket.connect()
         return socket
@@ -26,19 +22,16 @@ extension SocketTests {
     // disconnect invalidates the heartbeat timer
     func testOnDisconnectInvalidateHeartbeatTimer() {
         let socket = createHeartbeatTestSocket()
+        socket.resetHeartbeat()
 
-        var timerCalled = 0
-        let queue = DispatchQueue(label: "test.heartbeat")
-        let timer = HeartbeatTimer(timeInterval: 10, queue: queue)
+        guard let heartbeatTimer = socket.heartbeatTimer else {
+            XCTFail("heartbeattimer was Nil")
+            return
+        }
 
-        timer.start { timerCalled += 1 }
-
-        socket.heartbeatTimer = timer
-
+        XCTAssert(heartbeatTimer.isValid)
         socket.disconnect()
-        XCTAssertFalse(socket.heartbeatTimer?.isValid ?? true)
-        timer.fire()
-        XCTAssert(timerCalled == 0)
+        XCTAssertFalse(heartbeatTimer.isValid)
     }
 
     // disconnect does nothing if not connected
@@ -74,15 +67,16 @@ extension SocketTests {
         let mockWebSocket = URLSessionTransportMock()
         let socket = createHeartbeatTestSocket(webSocket: mockWebSocket)
         socket.heartbeatInterval = 1
-
-        XCTAssertNil(socket.heartbeatTimer)
         socket.resetHeartbeat()
 
-        XCTAssertNotNil(socket.heartbeatTimer)
-        XCTAssert(socket.heartbeatTimer?.timeInterval == 1)
+        guard let heartbeatTimer = socket.heartbeatTimer else {
+            XCTFail("heartbeattimer was Nil")
+            return
+        }
+        XCTAssert(heartbeatTimer.timeInterval == 1)
 
         // Fire the timer
-        socket.heartbeatTimer?.fire()
+        heartbeatTimer.fire()
         XCTAssert(mockWebSocket.sendDataCalled)
         let json = self.decode(mockWebSocket.sendDataReceivedData!) as? [Any?]
         XCTAssertNil(json?[0] as? String)
@@ -96,18 +90,21 @@ extension SocketTests {
     func testResetHeartbeatInvalidatesOldTimer() {
         let mockWebSocket = URLSessionTransportMock()
         let socket = createHeartbeatTestSocket(webSocket: mockWebSocket)
-        let queue = DispatchQueue(label: "test.heartbeat")
-        let timer = HeartbeatTimer(timeInterval: 1000, queue: queue)
 
-        var timerCalled = 0
-        timer.start { timerCalled += 1 }
-        socket.heartbeatTimer = timer
-
-        XCTAssert(timer.isValid)
+        XCTAssertNil(socket.heartbeatTimer)
         socket.resetHeartbeat()
 
-        XCTAssertFalse(timer.isValid)
-        XCTAssert(socket.heartbeatTimer != timer)
+        guard let oldTimer = socket.heartbeatTimer,
+              let heartbeatTimer = socket.heartbeatTimer else {
+            XCTFail("heartbeattimer was Nil")
+            return
+        }
+
+        XCTAssert(heartbeatTimer.isValid)
+        socket.resetHeartbeat()
+
+        XCTAssertFalse(oldTimer.isValid)
+        XCTAssert(oldTimer != socket.heartbeatTimer)
     }
 }
 
