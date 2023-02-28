@@ -23,10 +23,10 @@ class SocketTests: XCTestCase {
     }
 
     // constructor sets defaults
-    func testConstructorDefaults() {
+    func testConstructorDefaults() async {
         let socket = Socket("wss://localhost:4000/socket")
-
-        XCTAssert(socket.channels.count == 0)
+        let channels = await socket.isolatedModel.channels
+        XCTAssert(channels.count == 0)
         XCTAssert(socket.sendBuffer.count == 0)
         XCTAssert(socket.ref == 0)
         XCTAssert(socket.endPoint == "wss://localhost:4000/socket")

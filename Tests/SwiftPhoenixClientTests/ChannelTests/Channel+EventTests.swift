@@ -81,11 +81,13 @@ extension ChannelTests {
                       receiveValue: { _ in expectation.fulfill() })
                 .store(in: &cancellables)
 
-            XCTAssert(mockSocket.channels.count == 1)
+            let channels = await mockSocket.isolatedModel.channels
+            XCTAssert(channels.count == 1)
             await channel.trigger(event: ChannelEvent.close)
             await waitForExpectations(timeout: 3)
 
-            XCTAssert(mockSocket.channels.isEmpty)
+            let updatedChannels = await mockSocket.isolatedModel.channels
+            XCTAssert(updatedChannels.isEmpty)
         } catch {
             XCTFail("testOnCloseSetsChannelStateClosed failed to join channel")
         }

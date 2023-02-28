@@ -29,11 +29,13 @@ extension SocketTests {
     // adds channel to sockets channel list
     func testAddChannelToSocketsList() async {
         let socket = createSocketTestsSocket()
-        XCTAssert(socket.channels.isEmpty)
+        let channels = await socket.isolatedModel.channels
+        XCTAssert(channels.isEmpty)
 
         let channel = await socket.channel("topic", params: ["one": "two"])
-        XCTAssert(socket.channels.count == 1)
-        XCTAssert(socket.channels[0].topic == channel.topic)
+        let updatedChannel = await socket.isolatedModel.channels
+        XCTAssert(updatedChannel.count == 1)
+        XCTAssert(updatedChannel[0].topic == channel.topic)
     }
 
     // removes given channel from channels
@@ -46,7 +48,8 @@ extension SocketTests {
         await channel2.joinPush.ref = "2"
 
         await socket.remove(channel1)
-        XCTAssert(socket.channels.count == 1)
-        XCTAssert(socket.channels[0].topic == channel2.topic)
+        let channels = await socket.isolatedModel.channels
+        XCTAssert(channels.count == 1)
+        XCTAssert(channels[0].topic == channel2.topic)
     }
 }

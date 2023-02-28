@@ -278,8 +278,8 @@ extension ChannelTests {
             try await channel.join().trigger("ok", payload: [:])
 
             let anotherChannel = await mockSocket.channel("another", params: ["three": "four"])
-
-            XCTAssert(mockSocket.channels.count == 2)
+            let channels = await mockSocket.isolatedModel.channels
+            XCTAssert(channels.count == 2)
 
             let leavePush = await channel.leave(timeout: Defaults.timeoutInterval)
             let expectation = expectation(description: "Leaving Channel and being removed from Socket")
@@ -298,8 +298,10 @@ extension ChannelTests {
             await leavePush.trigger("ok", payload: [:])
             await waitForExpectations(timeout: 3)
 
-            XCTAssert(mockSocket.channels.count == 1)
-            XCTAssert(mockSocket.channels.first === anotherChannel)
+            let updatedChannels = await mockSocket.isolatedModel.channels
+
+            XCTAssert(updatedChannels.count == 1)
+            XCTAssert(updatedChannels.first === anotherChannel)
         } catch {
             XCTFail("testChannelLeaveRecievesOkFromServer failed to join")
         }

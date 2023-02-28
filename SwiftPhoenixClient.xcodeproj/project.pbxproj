@@ -38,6 +38,7 @@
 		635669C4261631DC0068B665 /* URLSessionTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 635669C3261631DC0068B665 /* URLSessionTransportTests.swift */; };
 		63DE6CCA272A2ECB00E2A728 /* MessageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63DE6CC9272A2ECB00E2A728 /* MessageTests.swift */; };
 		63F0F58D2592E44800C904FB /* ChatRoomViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63F0F58C2592E44800C904FB /* ChatRoomViewController.swift */; };
+		C3B8BCD029AD775300BC0FDF /* IsolatedSocketModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B8BCCF29AD775300BC0FDF /* IsolatedSocketModel.swift */; };
 		C3D9BE5728FE11A400972FFB /* Socket+ChannelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2296928FDE7E5005634E5 /* Socket+ChannelTests.swift */; };
 		C3D9BE5F28FE593B00972FFB /* Socket+Combine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2297028FDECA5005634E5 /* Socket+Combine.swift */; };
 		C3D9BE6028FF13D200972FFB /* Socket+HeartbeatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F2296D28FDE82B005634E5 /* Socket+HeartbeatTests.swift */; };
@@ -120,6 +121,7 @@
 		635669C3261631DC0068B665 /* URLSessionTransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSessionTransportTests.swift; sourceTree = "<group>"; };
 		63DE6CC9272A2ECB00E2A728 /* MessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageTests.swift; sourceTree = "<group>"; };
 		63F0F58C2592E44800C904FB /* ChatRoomViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatRoomViewController.swift; sourceTree = "<group>"; };
+		C3B8BCCF29AD775300BC0FDF /* IsolatedSocketModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IsolatedSocketModel.swift; sourceTree = "<group>"; };
 		C3D9BE6228FF495D00972FFB /* ChannelError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelError.swift; sourceTree = "<group>"; };
 		C3D9BE6428FF550900972FFB /* Channel+TimeoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Channel+TimeoutTests.swift"; sourceTree = "<group>"; };
 		C3F2295A28F7625A005634E5 /* PushError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PushError.swift; sourceTree = "<group>"; };
@@ -322,6 +324,7 @@
 			isa = PBXGroup;
 			children = (
 				12922E1F2543B10B0034B257 /* Socket.swift */,
+				C3B8BCCF29AD775300BC0FDF /* IsolatedSocketModel.swift */,
 				C3F2296328FA1BD1005634E5 /* TransportReadyState.swift */,
 				12922E212543B37B0034B257 /* URLSessionTransport.swift */,
 			);
@@ -615,6 +618,7 @@
 				12991E01254C3F1300BB8650 /* TimeoutTimer.swift in Sources */,
 				C3F2297528FDFB91005634E5 /* ChannelProtocol.swift in Sources */,
 				12991E07254C3F4B00BB8650 /* Message.swift in Sources */,
+				C3B8BCD029AD775300BC0FDF /* IsolatedSocketModel.swift in Sources */,
 				C3F2296028FA1B05005634E5 /* URLSessionTransportProtocol.swift in Sources */,
 				12991E03254C3F2300BB8650 /* Push.swift in Sources */,
 				C3F2296228FA1B49005634E5 /* URLSessionTransportDelegate.swift in Sources */,

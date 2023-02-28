@@ -128,7 +128,7 @@ public class Socket {
     // MARK: - Private Attributes
     // ----------------------------------------------------------------------
     /// Collection of channels created for the Socket
-    internal var channels: [Channel] = []
+    internal var isolatedModel = IsolatedSocketModel()
 
     /// Buffers messages that need to be sent once the socket has connected. It is an array
     /// of tuples, with the ref of the message to send and the callback that will send the message.
@@ -340,7 +340,7 @@ extension Socket {
     public func channel(_ topic: String,
                         params: [String: Any] = [:]) async -> Channel {
         let channel = await Channel(topic: topic, params: params, socket: self)
-        self.channels.append(channel)
+        await isolatedModel.add(channel: channel)
 
         return channel
     }
@@ -356,13 +356,7 @@ extension Socket {
     ///
     /// - parameter channel: Channel to remove
     public func remove(_ channel: Channel) async {
-        var channels: [Channel] = []
-
-        for storedChannel in self.channels where await storedChannel.joinRef != channel.joinRef {
-            channels.append(storedChannel)
-        }
-
-        self.channels = channels
+        await isolatedModel.remove(channel: channel)
     }
 
     /// Logs the message. Override Socket.logger for specialized logging. noops by default
@@ -443,7 +437,7 @@ extension Socket {
         }
 
         // Dispatch the message to all channels that belong to the topic
-        for channel in self.channels where await channel.isMember(message) {
+        for channel in await self.isolatedModel.channels where await channel.isMember(message) {
             await channel.trigger(message)
         }
 
@@ -453,7 +447,7 @@ extension Socket {
 
     /// Triggers an error event to all of the connected Channels
     internal func triggerChannelError() async {
-        for channel in self.channels {
+        for channel in await self.isolatedModel.channels {
             let isErrored = await channel.isErrored
             let isLeaving = await channel.isLeaving
             let isClosed = await channel.isClosed
@@ -510,7 +504,7 @@ extension Socket {
 
     // Leaves any channel that is open that has a duplicate topic
     internal func leaveOpenTopic(topic: String) async {
-        for channel in self.channels {
+        for channel in await self.isolatedModel.channels {
             let isInJoinedState = await channel.isJoined
             let isInJoiningState = await channel.isJoining
             if channel.topic == topic && (isInJoiningState || isInJoinedState) {
