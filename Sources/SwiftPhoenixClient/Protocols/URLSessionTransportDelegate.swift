@@ -19,7 +19,7 @@ public protocol URLSessionTransportDelegate: AnyObject {
     /**
      Notified when the `Transport` opens.
      */
-    func onOpen()
+    func onOpen() async
 
     /**
      Notified when the `Transport` receives an error.

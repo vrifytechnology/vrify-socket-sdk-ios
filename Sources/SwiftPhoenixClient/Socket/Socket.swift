@@ -127,12 +127,8 @@ public class Socket {
     // ----------------------------------------------------------------------
     // MARK: - Private Attributes
     // ----------------------------------------------------------------------
-    /// Collection of channels created for the Socket
+    /// Actor isolated data
     internal var isolatedModel = IsolatedSocketModel()
-
-    /// Buffers messages that need to be sent once the socket has connected. It is an array
-    /// of tuples, with the ref of the message to send and the callback that will send the message.
-    internal var sendBuffer: [(ref: String?, callback: () throws -> Void)] = []
 
     /// Ref counter for messages
     internal var ref: UInt64 = UInt64.min // 0 (max: 18,446,744,073,709,551,615)
@@ -222,7 +218,7 @@ public class Socket {
                        event: String,
                        payload: Payload,
                        ref: String? = nil,
-                       joinRef: String? = nil) {
+                       joinRef: String? = nil) async {
 
         let callback: (() throws -> Void) = {
             let body: [Any?] = [joinRef, ref, topic, event, payload]
@@ -239,7 +235,7 @@ public class Socket {
         } else {
             /// If the socket is not connected, add the push to a buffer which will
             /// be sent immediately upon connection.
-            self.sendBuffer.append((ref: ref, callback: callback))
+            await self.isolatedModel.append(message: (ref: ref, callback: callback))
         }
     }
 
@@ -340,7 +336,7 @@ extension Socket {
     public func channel(_ topic: String,
                         params: [String: Any] = [:]) async -> Channel {
         let channel = await Channel(topic: topic, params: params, socket: self)
-        await isolatedModel.add(channel: channel)
+        await isolatedModel.append(channel: channel)
 
         return channel
     }
@@ -371,14 +367,14 @@ extension Socket {
     // MARK: - Connection Events
     // ----------------------------------------------------------------------
     /// Called when the underlying Websocket connects to it's host
-    internal func onConnectionOpen() {
+    internal func onConnectionOpen() async {
         self.logItems("transport", "Connected to \(endPoint)")
 
         // Reset the close status now that the socket has been connected
         self.closeStatus = .unknown
 
         // Send any messages that were waiting for a connection
-        self.flushSendBuffer()
+        await self.flushSendBuffer()
 
         // Reset how the socket tried to reconnect
         self.reconnectTimer.reset()
@@ -459,15 +455,16 @@ extension Socket {
     }
 
     /// Send all messages that were buffered before the socket opened
-    internal func flushSendBuffer() {
+    internal func flushSendBuffer() async {
+        let sendBuffer = await isolatedModel.sendBuffer
         guard isConnected && sendBuffer.count > 0 else { return }
-        self.sendBuffer.forEach({ try? $0.callback() })
-        self.sendBuffer = []
+        sendBuffer.forEach({ try? $0.callback() })
+        await isolatedModel.clearSendBuffer()
     }
 
     /// Removes an item from the sendBuffer with the matching ref
-    internal func removeFromSendBuffer(ref: String) {
-        self.sendBuffer = self.sendBuffer.filter({ $0.ref != ref })
+    internal func removeFromSendBuffer(ref: String) async {
+        await isolatedModel.removeFromSendBuffer(ref: ref)
     }
 
     /// Builds a fully qualified socket `URL` from `endPoint` and `params`.
@@ -527,12 +524,14 @@ extension Socket {
 
         self.heartbeatTimer = Timer.scheduledTimer(withTimeInterval: heartbeatInterval,
                                                    repeats: true) { [weak self] _ in
-            self?.sendHeartbeat()
+            Task { [weak self] in
+                await self?.sendHeartbeat()
+            }
         }
     }
 
     /// Sends a hearbeat payload to the phoenix serverss
-    @objc func sendHeartbeat() {
+    @objc func sendHeartbeat() async {
         // Do not send if the connection is closed
         guard isConnected else { return }
 
@@ -553,10 +552,10 @@ extension Socket {
 
         // The last heartbeat was acknowledged by the server. Send another one
         self.pendingHeartbeatRef = self.makeRef()
-        self.push(topic: "phoenix",
-                  event: ChannelEvent.heartbeat,
-                  payload: [:],
-                  ref: self.pendingHeartbeatRef)
+        await self.push(topic: "phoenix",
+                        event: ChannelEvent.heartbeat,
+                        payload: [:],
+                        ref: self.pendingHeartbeatRef)
     }
 
     internal func abnormalClose(_ reason: String) {
@@ -578,8 +577,8 @@ extension Socket: URLSessionTransportDelegate {
     // ----------------------------------------------------------------------
     // MARK: - TransportDelegate
     // ----------------------------------------------------------------------
-    public func onOpen() {
-        self.onConnectionOpen()
+    public func onOpen() async {
+        await self.onConnectionOpen()
     }
 
     public func onError(error: Error) async {

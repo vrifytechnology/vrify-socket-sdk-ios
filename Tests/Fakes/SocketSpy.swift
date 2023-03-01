@@ -35,14 +35,14 @@ class SocketSpy: Socket {
                        event: String,
                        payload: Payload,
                        ref: String? = nil,
-                       joinRef: String? = nil) {
+                       joinRef: String? = nil) async {
         self.pushCalled = true
         self.pushCallCount += 1
         self.pushArgs[pushCallCount] = (topic: topic, event: event, payload: payload, ref: ref, joinRef: joinRef)
-        super.push(topic: topic,
-                   event: event,
-                   payload: payload,
-                   ref: ref,
-                   joinRef: joinRef)
+        await super.push(topic: topic,
+                         event: event,
+                         payload: payload,
+                         ref: ref,
+                         joinRef: joinRef)
     }
 }

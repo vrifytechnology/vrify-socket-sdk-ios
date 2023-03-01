@@ -541,7 +541,7 @@ class SocketMock: Socket {
                        event: String,
                        payload: Payload,
                        ref: String? = nil,
-                       joinRef: String? = nil) {
+                       joinRef: String? = nil) async {
         pushCallsCount += 1
         pushArguments = (topic: topic, event: event, payload: payload, ref: ref, joinRef: joinRef)
         pushTopicEventPayloadRefJoinRefClosure?(topic, event, payload, ref, joinRef)

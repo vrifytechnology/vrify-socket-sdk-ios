@@ -27,7 +27,8 @@ class SocketTests: XCTestCase {
         let socket = Socket("wss://localhost:4000/socket")
         let channels = await socket.isolatedModel.channels
         XCTAssert(channels.count == 0)
-        XCTAssert(socket.sendBuffer.count == 0)
+        let sendBuffer = await socket.isolatedModel.sendBuffer
+        XCTAssert(sendBuffer.count == 0)
         XCTAssert(socket.ref == 0)
         XCTAssert(socket.endPoint == "wss://localhost:4000/socket")
         XCTAssert(socket.timeout == Defaults.timeoutInterval)
@@ -185,7 +186,7 @@ extension SocketTests {
         mockWebSocket.readyState = .closed
         socket.connect()
 
-        mockWebSocket.delegate?.onOpen()
+        await mockWebSocket.delegate?.onOpen()
         XCTAssert(open == 1)
 
         await mockWebSocket.delegate?.onClose(code: 1000)
@@ -282,55 +283,56 @@ extension SocketTests {
     }
 
     // flushSendBuffer calls callbacks in buffer when connected
-    func testFlushSendBuffer() {
+    func testFlushSendBuffer() async {
         let mockWebSocket = URLSessionTransportMock()
         let socket = Socket("/socket")
         socket.connection = mockWebSocket
 
         var oneCalled = 0
-        socket.sendBuffer.append(("0", { oneCalled += 1 }))
+        await socket.isolatedModel.append(message: ("0", { oneCalled += 1 }))
         var twoCalled = 0
-        socket.sendBuffer.append(("1", { twoCalled += 1 }))
+        await socket.isolatedModel.append(message: ("1", { twoCalled += 1 }))
         let threeCalled = 0
 
         mockWebSocket.readyState = .open
-        socket.flushSendBuffer()
+        await socket.flushSendBuffer()
         XCTAssert(oneCalled == 1)
         XCTAssert(twoCalled == 1)
         XCTAssert(threeCalled == 0)
     }
 
     // flushSendBuffer empties send buffer
-    func testEmptySendBuffer() {
+    func testEmptySendBuffer() async {
         let mockWebSocket = URLSessionTransportMock()
         let socket = Socket("/socket")
         socket.connection = mockWebSocket
 
-        socket.sendBuffer.append((nil, { }))
+        await socket.isolatedModel.append(message: (nil, { }))
         mockWebSocket.readyState = .open
-        socket.flushSendBuffer()
+        await socket.flushSendBuffer()
 
-        XCTAssert(socket.sendBuffer.isEmpty)
+        let sendBuffer = await socket.isolatedModel.sendBuffer
+        XCTAssert(sendBuffer.isEmpty)
     }
 
     // removeFromSendBuffer removes a callback with a matching ref
-    func testRemoveFromSendBuffer() {
+    func testRemoveFromSendBuffer() async {
         let mockWebSocket = URLSessionTransportMock()
         let socket = Socket("/socket")
         socket.connection = mockWebSocket
 
         // test removes a callback with a matching ref
         var oneCalled = 0
-        socket.sendBuffer.append(("0", { oneCalled += 1 }))
+        await socket.isolatedModel.append(message: ("0", { oneCalled += 1 }))
         var twoCalled = 0
-        socket.sendBuffer.append(("1", { twoCalled += 1 }))
+        await socket.isolatedModel.append(message: ("1", { twoCalled += 1 }))
         let threeCalled = 0
 
         mockWebSocket.readyState = .open
 
-        socket.removeFromSendBuffer(ref: "0")
+        await socket.removeFromSendBuffer(ref: "0")
 
-        socket.flushSendBuffer()
+        await socket.flushSendBuffer()
         XCTAssert(oneCalled == 0)
         XCTAssert(twoCalled == 1)
         XCTAssert(threeCalled == 0)

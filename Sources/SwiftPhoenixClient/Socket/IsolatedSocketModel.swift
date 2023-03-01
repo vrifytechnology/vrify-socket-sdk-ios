@@ -9,9 +9,18 @@
 import Foundation
 
 actor IsolatedSocketModel {
-    internal var channels: [Channel] = []
+    typealias SuspendedMessage = (ref: String?, callback: () throws -> Void)
 
-    func add(channel: Channel) async {
+    /// Collection of channels created for the Socket
+    var channels: [Channel] = []
+
+    /// Buffers messages that need to be sent once the socket has connected. It is an array
+    /// of tuples, with the ref of the message to send and the callback that will send the message.
+    var sendBuffer: [SuspendedMessage] = []
+}
+
+extension IsolatedSocketModel {
+    func append(channel: Channel) async {
         channels.append(channel)
     }
 
@@ -23,5 +32,19 @@ actor IsolatedSocketModel {
         }
 
         self.channels = channels
+    }
+}
+
+extension IsolatedSocketModel {
+    func append(message: SuspendedMessage) {
+        sendBuffer.append(message)
+    }
+
+    func clearSendBuffer() {
+        sendBuffer = []
+    }
+
+    func removeFromSendBuffer(ref: String) {
+        sendBuffer = sendBuffer.filter({ $0.ref != ref })
     }
 }

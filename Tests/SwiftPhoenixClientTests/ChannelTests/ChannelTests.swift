@@ -206,7 +206,7 @@ extension ChannelTests {
         let spySocket = SocketSpy(endPoint: "/socket", transport: { _ in mockWebSocket })
         let channel = await spySocket.channel("topic", params: ["one": "two"])
 
-        spySocket.onConnectionOpen()
+        await spySocket.onConnectionOpen()
 
         do {
             let expectation = expectation(description: "expected ok response")
@@ -247,7 +247,7 @@ extension ChannelTests {
         let mockSocket = SocketMock(endPoint: "/socket", transport: { _ in mockWebSocket })
         let channel = await mockSocket.channel("topic", params: ["one": "two"])
 
-        mockSocket.onConnectionOpen()
+        await mockSocket.onConnectionOpen()
 
         mockSocket.makeRefClosure = nil
         mockSocket.makeRefReturnValue = ChannelTests.kDefaultRef

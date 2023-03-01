@@ -17,7 +17,7 @@ extension ChannelTests {
         let mockSocket = socket ?? SocketMock(endPoint: "/socket", transport: { _ in webSocket })
         let channel = await mockSocket.channel("topic", params: ["one": "two"])
 
-        mockSocket.onConnectionOpen()
+        await mockSocket.onConnectionOpen()
 
         mockSocket.makeRefClosure = { String(mockSocket.makeRefCallsCount) }
         mockSocket.makeRefReturnValue = ChannelTests.kDefaultRef

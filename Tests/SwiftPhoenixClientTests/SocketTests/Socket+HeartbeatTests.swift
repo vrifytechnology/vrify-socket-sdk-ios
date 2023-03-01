@@ -63,7 +63,7 @@ extension SocketTests {
     }
 
     // resetHeartbeat creates a timer and sends a heartbeat
-    func testResetHeartbeatSendsHeartbeat() {
+    func testResetHeartbeatSendsHeartbeat() async {
         let mockWebSocket = URLSessionTransportMock()
         let socket = createHeartbeatTestSocket(webSocket: mockWebSocket)
         socket.heartbeatInterval = 1
@@ -77,6 +77,7 @@ extension SocketTests {
 
         // Fire the timer
         heartbeatTimer.fire()
+        await Task.yield()
         XCTAssert(mockWebSocket.sendDataCalled)
         let json = self.decode(mockWebSocket.sendDataReceivedData!) as? [Any?]
         XCTAssertNil(json?[0] as? String)
@@ -110,29 +111,29 @@ extension SocketTests {
 
 extension SocketTests {
     // sendHeartbeat closes socket when heartbeat is not ack'd within heartbeat window
-    func testSendHearbeatNotAckdClosesSocket() {
+    func testSendHearbeatNotAckdClosesSocket() async {
         let mockWebSocket = URLSessionTransportMock()
         let socket = Socket(endPoint: "/socket", transport: { _ in mockWebSocket })
         mockWebSocket.readyState = .open
 
         socket.connect()
-        socket.sendHeartbeat()
+        await socket.sendHeartbeat()
         XCTAssertFalse(mockWebSocket.disconnectCodeReasonCalled)
         XCTAssertNotNil(socket.pendingHeartbeatRef)
 
-        socket.sendHeartbeat()
+        await socket.sendHeartbeat()
         XCTAssert(mockWebSocket.disconnectCodeReasonCalled)
         XCTAssertNil(socket.pendingHeartbeatRef)
     }
 
     // sendHeartbeat pushes heartbeat data when connected
-    func testSendHearbeatPushesHeartbeatWhenConnected() {
+    func testSendHearbeatPushesHeartbeatWhenConnected() async {
         let mockWebSocket = URLSessionTransportMock()
         let socket = Socket(endPoint: "/socket", transport: { _ in mockWebSocket })
         mockWebSocket.readyState = .open
 
         socket.connect()
-        socket.sendHeartbeat()
+        await socket.sendHeartbeat()
 
         XCTAssert(socket.pendingHeartbeatRef == String(socket.ref))
         XCTAssert(mockWebSocket.sendDataCalled)
@@ -152,12 +153,12 @@ extension SocketTests {
     }
 
     // sendHeartbeat does nothing when not connected
-    func testSendHearbeatDoesNothingWhenNotConnected() {
+    func testSendHearbeatDoesNothingWhenNotConnected() async {
         let mockWebSocket = URLSessionTransportMock()
         let socket = Socket(endPoint: "/socket", transport: { _ in mockWebSocket })
         mockWebSocket.readyState = .closed
 
-        socket.sendHeartbeat()
+        await socket.sendHeartbeat()
 
         XCTAssertFalse(mockWebSocket.disconnectCodeReasonCalled)
         XCTAssertFalse(mockWebSocket.sendDataCalled)

@@ -128,7 +128,7 @@ public class URLSessionTransport: NSObject, URLSessionTransportProtocol, URLSess
         // The Websocket is connected. Set Transport state to open and inform delegate
         Task {
             self.readyState = .open
-            self.delegate?.onOpen()
+            await self.delegate?.onOpen()
 
             // Start receiving messages
             await self.receive()

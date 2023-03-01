@@ -74,7 +74,7 @@ extension ChannelTests {
         let channel = await spySocket.channel("topic", params: ["one": "two"])
 
         spySocket.connect()
-        spySocket.onConnectionOpen()
+        await spySocket.onConnectionOpen()
 
         do {
             let joinPush = try await channel.join()

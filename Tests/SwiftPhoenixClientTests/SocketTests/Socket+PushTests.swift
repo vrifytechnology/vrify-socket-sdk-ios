@@ -20,10 +20,10 @@ extension SocketTests {
     }
 
     // Push sends data to connection when connected
-    func testPushSendData() {
+    func testPushSendData() async {
         let mockWebSocket = URLSessionTransportMock()
         let socket = createPushTestsSocket(webSocket: mockWebSocket)
-        socket.push(topic: "topic", event: "event", payload: ["one": "two"], ref: "6", joinRef: "2")
+        await socket.push(topic: "topic", event: "event", payload: ["one": "two"], ref: "6", joinRef: "2")
 
         XCTAssert(mockWebSocket.sendDataCalled)
 
@@ -43,10 +43,10 @@ extension SocketTests {
     }
 
     // Push excludes ref information if not passed
-    func testPushExcludesRefInfoIfNotPassed() {
+    func testPushExcludesRefInfoIfNotPassed() async {
         let mockWebSocket = URLSessionTransportMock()
         let socket = createPushTestsSocket(webSocket: mockWebSocket)
-        socket.push(topic: "topic", event: "event", payload: ["one": "two"])
+        await socket.push(topic: "topic", event: "event", payload: ["one": "two"])
 
         // swiftlint:disable:next force_cast
         let json = self.decode(mockWebSocket.sendDataReceivedData!) as! [Any?]
@@ -64,23 +64,26 @@ extension SocketTests {
     }
 
     // Push buffers data when not connected
-    func testPushBuffersDataWhenNotConnected() {
+    func testPushBuffersDataWhenNotConnected() async {
         let mockWebSocket = URLSessionTransportMock()
         mockWebSocket.readyState = .closed
         let socket = Socket(endPoint: "/socket", transport: { _ in mockWebSocket })
-        XCTAssert(socket.sendBuffer.isEmpty)
+        let emptySendBuffer = await socket.isolatedModel.sendBuffer
+        XCTAssert(emptySendBuffer.isEmpty)
 
-        socket.push(topic: "topic1", event: "event1", payload: ["one": "two"])
+        await socket.push(topic: "topic1", event: "event1", payload: ["one": "two"])
         XCTAssertFalse(mockWebSocket.sendDataCalled)
-        XCTAssert(socket.sendBuffer.count == 1)
+        let oneSendBuffer = await socket.isolatedModel.sendBuffer
+        XCTAssert(oneSendBuffer.count == 1)
 
-        socket.push(topic: "topic2", event: "event2", payload: ["one": "two"])
+        await socket.push(topic: "topic2", event: "event2", payload: ["one": "two"])
         XCTAssertFalse(mockWebSocket.sendDataCalled)
-        XCTAssert(socket.sendBuffer.count == 2)
+        let twoSendBuffer = await socket.isolatedModel.sendBuffer
+        XCTAssert(twoSendBuffer.count == 2)
 
         socket.connect()
 
-        socket.sendBuffer.forEach({ try? $0.callback() })
+        twoSendBuffer.forEach({ try? $0.callback() })
         XCTAssert(mockWebSocket.sendDataCalled)
         XCTAssert(mockWebSocket.sendDataCallsCount == 2)
     }

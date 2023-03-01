@@ -25,27 +25,28 @@ extension SocketTests {
     }
 
     // onConnectionOpen flushes the send buffer
-    func testOnConnectionOpenSendBufferFlushes() {
+    func testOnConnectionOpenSendBufferFlushes() async {
         let socket = createTimeoutableSocket()
 
         var oneCalled = 0
-        socket.sendBuffer.append(("0", { oneCalled += 1 }))
+        await socket.isolatedModel.append(message: ("0", { oneCalled += 1 }))
 
-        socket.onConnectionOpen()
+        await socket.onConnectionOpen()
         XCTAssert(oneCalled == 1)
-        XCTAssert(socket.sendBuffer.isEmpty)
+        let sendBuffer = await socket.isolatedModel.sendBuffer
+        XCTAssert(sendBuffer.isEmpty)
     }
 
     // onConnectionOpen resets reconnectTimer
-    func testOnConnectionResetsReconnectTimer() {
+    func testOnConnectionResetsReconnectTimer() async {
         let mockTimeoutTimer = TimeoutTimerMock()
         let socket = createTimeoutableSocket(timeoutTimer: mockTimeoutTimer)
-        socket.onConnectionOpen()
+        await socket.onConnectionOpen()
         XCTAssert(mockTimeoutTimer.resetCalled)
     }
 
     // onConnectionOpen triggers onOpen callbacks
-    func testOnConnectionOpenCallbacks() {
+    func testOnConnectionOpenCallbacks() async {
         let socket = createTimeoutableSocket()
 
         var oneCalled = 0
@@ -63,7 +64,7 @@ extension SocketTests {
             .sink { threeCalled += 1 }
             .store(in: &cancellables)
 
-        socket.onConnectionOpen()
+        await socket.onConnectionOpen()
         XCTAssert(oneCalled == 1)
         XCTAssert(twoCalled == 1)
         XCTAssert(threeCalled == 0)
