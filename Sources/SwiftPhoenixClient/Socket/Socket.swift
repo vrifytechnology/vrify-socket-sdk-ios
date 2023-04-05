@@ -380,7 +380,7 @@ extension Socket {
         self.reconnectTimer.reset()
 
         // Restart the heartbeat timer
-        self.resetHeartbeat()
+        await self.resetHeartbeat()
 
         // Inform all onOpen callbacks that the Socket has opened
         self.socketOpened.send()
@@ -514,7 +514,7 @@ extension Socket {
     // ----------------------------------------------------------------------
     // MARK: - Heartbeat
     // ----------------------------------------------------------------------
-    internal func resetHeartbeat() {
+    internal func resetHeartbeat() async {
         // Clear anything related to the heartbeat
         self.pendingHeartbeatRef = nil
         self.heartbeatTimer?.invalidate()
@@ -522,10 +522,12 @@ extension Socket {
         // Do not start up the heartbeat timer if skipHeartbeat is true
         guard !skipHeartbeat else { return }
 
-        self.heartbeatTimer = Timer.scheduledTimer(withTimeInterval: heartbeatInterval,
-                                                   repeats: true) { [weak self] _ in
-            Task { [weak self] in
-                await self?.sendHeartbeat()
+        await MainActor.run {
+            self.heartbeatTimer = Timer.scheduledTimer(withTimeInterval: self.heartbeatInterval,
+                                                       repeats: true) { [weak self] _ in
+                Task { [weak self] in
+                    await self?.sendHeartbeat()
+                }
             }
         }
     }
