@@ -5,14 +5,14 @@ import PackageDescription
 let package = Package(
     name: "SwiftPhoenixClient",
     platforms: [
-        .macOS(.v10_12),
-        .iOS(.v10),
-        .tvOS(.v10),
-        .watchOS(.v3)
+        .macOS("12.0"),
+        .iOS("13.0"),
+        .tvOS("15.0"),
+        .watchOS("8.0")
     ],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
-        .library(name: "SwiftPhoenixClient", targets: ["SwiftPhoenixClient"]),
+        .library(name: "SwiftPhoenixClient", targets: ["SwiftPhoenixClient"])
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -26,6 +26,6 @@ let package = Package(
         ),
         .testTarget(
             name: "SwiftPhoenixClientTests",
-            dependencies: ["SwiftPhoenixClient"]),
+            dependencies: ["SwiftPhoenixClient"])
     ]
 )

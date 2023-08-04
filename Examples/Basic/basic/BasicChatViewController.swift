@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import Combine
 import SwiftPhoenixClient
 
 /*
@@ -18,10 +19,7 @@ import SwiftPhoenixClient
  For a more advanced example, see the ChatRoomViewController
  
  This example is intended to connect to a local chat server.
- 
- Setup
- 1. Select which Transpart is being tested.
- 
+
  Steps
  1. Connect the Socket
  2. Verify System pings come through
@@ -40,198 +38,228 @@ import SwiftPhoenixClient
 let endpoint = "http://localhost:4000/socket/websocket"
 
 class BasicChatViewController: UIViewController {
-  
-  // MARK: - Child Views
-  
-  @IBOutlet weak var connectButton: UIButton!
-  
-  @IBOutlet weak var pauseButton: UIButton!
-  @IBOutlet weak var messageField: UITextField!
-  @IBOutlet weak var chatWindow: UITextView!
-  
-  
-  // Notifcation Subscriptions
-  private var didbecomeActiveObservervation: NSObjectProtocol?
-  private var willResignActiveObservervation: NSObjectProtocol?
-  
-  // MARK: - Variables
-  let username: String = "Basic"
-  var topic: String = "rooms:lobby"
-  
-  
-  
-  // Test the URLSessionTransport
-  let socket = Socket(endpoint)
-  
-  // Test the StarscreamTransport
-//  let socket = Socket(endPoint: endpoint, transport: { url in return StarscreamTransport(url: url) })
-    
-  var lobbyChannel: Channel!
-  
-  // MARK: - Lifecycle
-  override func viewDidLoad() {
-    super.viewDidLoad()
-    
-    self.chatWindow.text = ""
-    
-    // To automatically manage retain cycles, use `delegate*(to:)` methods.
-    // If you would prefer to handle them yourself, youcan use the same
-    // methods without the `delegate` functions, just be sure you avoid
-    // memory leakse with `[weak self]`
-    socket.delegateOnOpen(to: self) { (self) in
-      self.addText("Socket Opened")
-      DispatchQueue.main.async {
-        self.connectButton.setTitle("Disconnect", for: .normal)
-      }
+
+    // MARK: - Child Views
+
+    @IBOutlet weak var connectButton: UIButton!
+
+    @IBOutlet weak var pauseButton: UIButton!
+    @IBOutlet weak var messageField: UITextField!
+    @IBOutlet weak var chatWindow: UITextView!
+
+    // Notifcation Subscriptions
+    private var didbecomeActiveObservervation: NSObjectProtocol?
+    private var willResignActiveObservervation: NSObjectProtocol?
+
+    // MARK: - Variables
+    let username: String = "Basic"
+    var topic: String = "rooms:lobby"
+    let socket = Socket(endpoint)
+    var lobbyChannel: Channel!
+
+    private var cancellables = Set<AnyCancellable>()
+
+    // MARK: - Lifecycle
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        self.chatWindow.text = ""
+
+        // To automatically manage retain cycles, use `delegate*(to:)` methods.
+        // If you would prefer to handle them yourself, youcan use the same
+        // methods without the `delegate` functions, just be sure you avoid
+        // memory leakse with `[weak self]`
+        socket.socketOpened.sink { _ in
+            self.addText("Socket Opened")
+            DispatchQueue.main.async {
+                self.connectButton.setTitle("Disconnect", for: .normal)
+            }
+        }.store(in: &cancellables)
+
+        socket.socketClosed.sink { _ in
+            self.addText("Socket Closed")
+            DispatchQueue.main.async {
+                self.connectButton.setTitle("Connect", for: .normal)
+            }
+        }.store(in: &cancellables)
+
+        socket.socketErrored.sink {
+            self.addText("Socket Errored: " + $0.localizedDescription)
+        }.store(in: &cancellables)
+
+        socket.logger = { msg in print("LOG:", msg) }
     }
-    
-    socket.delegateOnClose(to: self) { (self) in
-      self.addText("Socket Closed")
-      DispatchQueue.main.async {
-        self.connectButton.setTitle("Connect", for: .normal)
-      }
+
+    // MARK: - IBActions
+    @IBAction func onConnectButtonPressed(_ sender: Any) {
+        Task {
+            if socket.isConnected {
+                await disconnectAndLeave()
+
+                self.removeAppActiveObservation()
+            } else {
+                await connectAndJoin()
+
+                // When app enters foreground, be sure that the socket is connected
+                self.observeDidBecomeActive()
+            }
+        }
     }
-    
-    socket.delegateOnError(to: self) { (self, error) in
-      self.addText("Socket Errored: " + error.localizedDescription)
+
+    private var isPaused: Bool = false
+    @IBAction func onPausePressed(_ sender: Any) {
+
+        if isPaused {
+            self.socket.connect()
+            self.pauseButton.setTitle("Pause", for: .normal)
+        } else {
+            self.socket.disconnect(code: .goingAway)
+            self.pauseButton.setTitle("Resume", for: .normal)
+        }
+
+        self.isPaused = !isPaused
+
     }
-    
-    socket.logger = { msg in print("LOG:", msg) }
-    
-  }
-  
-  
-  // MARK: - IBActions
-  @IBAction func onConnectButtonPressed(_ sender: Any) {
-    if socket.isConnected {
-      disconnectAndLeave()
-      
-      self.removeAppActiveObservation()
-    } else {
-      connectAndJoin()
-      
-      // When app enters foreground, be sure that the socket is connected
-      self.observeDidBecomeActive()
+
+    @IBAction func sendMessage(_ sender: UIButton) {
+        let payload = ["user": username, "body": messageField.text!]
+
+        Task {
+            do {
+                let push = try await self.lobbyChannel.createPush("new:msg",
+                                                              payload: payload,
+                                                              timeout: Defaults.timeoutInterval)
+                push.pushResponse
+                    .compactMap { $0 }
+                    .sink(receiveCompletion: {
+                        if case let .failure(error) = $0 {
+                            print("error: ", error.localizedDescription)
+                        }
+                    }, receiveValue: {
+                        print("success", $0)
+                    })
+                    .store(in: &cancellables)
+
+                try await self.lobbyChannel.send(push)
+            } catch { }
+        }
+
+        messageField.text = ""
     }
-  }
-  
-  private var isPaused: Bool = false
-  @IBAction func onPausePressed(_ sender: Any) {
-  
-    if isPaused {
-      self.socket.connect()
-      self.pauseButton.setTitle("Pause", for: .normal)
-    } else {
-      self.socket.disconnect(code: .goingAway)
-      self.pauseButton.setTitle("Resume", for: .normal)
+
+    // MARK: - Private
+    private func observeDidBecomeActive() {
+        // Make sure there's no other observations
+        self.removeAppActiveObservation()
+
+//        self.didbecomeActiveObservervation = NotificationCenter.default
+//            .addObserver(forName: UIApplication.didBecomeActiveNotification,
+//                         object: nil,
+//                         queue: .main) { [weak self] _ in
+//                Task { self?.socket.pauseConnection() }
+//            }
+//
+//        // When the app resigns being active, the leave any existing channels
+//        // and disconnect from the websocket.
+//        self.willResignActiveObservervation = NotificationCenter.default
+//            .addObserver(forName: UIApplication.willResignActiveNotification,
+//                         object: nil,
+//                         queue: .main) { [weak self] _ in
+//                Task { self?.socket.resumeConnection() }
+//            }
     }
-    
-    self.isPaused = !isPaused
-    
-  }
-  
-  
-  
-  @IBAction func sendMessage(_ sender: UIButton) {
-    let payload = ["user": username, "body": messageField.text!]
-    
-    self.lobbyChannel
-      .push("new:msg", payload: payload)
-      .receive("ok") { (message) in
-        print("success", message)
-      }
-      .receive("error") { (errorMessage) in
-        print("error: ", errorMessage)
-      }
-    
-    messageField.text = ""
-  }
-  
-  
-  
-  // MARK: - Private
-  private func observeDidBecomeActive() {
-    //Make sure there's no other observations
-    self.removeAppActiveObservation()
-    
-    self.didbecomeActiveObservervation = NotificationCenter.default
-      .addObserver(forName: UIApplication.didBecomeActiveNotification,
-                   object: nil,
-                   queue: .main) { [weak self] _ in self?.socket.pauseConnection() }
-    
-    // When the app resigns being active, the leave any existing channels
-    // and disconnect from the websocket.
-    self.willResignActiveObservervation = NotificationCenter.default
-      .addObserver(forName: UIApplication.willResignActiveNotification,
-                   object: nil,
-                   queue: .main) { [weak self] _ in self?.socket.resumeConnection() }
-  }
-  
-  private func removeAppActiveObservation() {
-    if let observer = self.didbecomeActiveObservervation {
-      NotificationCenter.default.removeObserver(observer)
-      self.didbecomeActiveObservervation = nil
+
+    private func removeAppActiveObservation() {
+        if let observer = self.didbecomeActiveObservervation {
+            NotificationCenter.default.removeObserver(observer)
+            self.didbecomeActiveObservervation = nil
+        }
+
+        if let observer = self.willResignActiveObservervation {
+            NotificationCenter.default.removeObserver(observer)
+            self.willResignActiveObservervation = nil
+        }
     }
-    
-    if let observer = self.willResignActiveObservervation {
-      NotificationCenter.default.removeObserver(observer)
-      self.willResignActiveObservervation = nil
+
+    private func disconnectAndLeave() async {
+        //     Be sure the leave the channel or call socket.remove(lobbyChannel)
+        await lobbyChannel.leave(timeout: Defaults.timeoutInterval)
+        socket.disconnect {
+            self.addText("Socket Disconnected")
+        }
     }
-  }
-  
-  
-  
-  
-  
-  
-  
-  private func disconnectAndLeave() {
-    //     Be sure the leave the channel or call socket.remove(lobbyChannel)
-    lobbyChannel.leave()
-    socket.disconnect {
-      self.addText("Socket Disconnected")
+
+    private func connectAndJoin() async {
+        do {
+            lobbyChannel = await socket.channel(topic, params: ["status": "joining"])
+            createLobbyChannelEventHandlers()
+            try await lobbyChannel?
+                .join()
+                .pushResponse
+                .compactMap { $0 }
+                .sink(receiveCompletion: {
+                    if case let .failure(error) = $0 {
+                        self.addText("Failed to join lobby channel: \(error)")
+                    }
+                }, receiveValue: { _ in
+                    self.addText("Joined Channel")
+                })
+                .store(in: &cancellables)
+
+            self.socket.connect()
+
+        } catch { }
     }
-  }
-  
-  private func connectAndJoin() {
-    let channel = socket.channel(topic, params: ["status":"joining"])
-    channel.delegateOn("join", to: self) { (self, _) in
-      self.addText("You joined the room.")
+
+    private func createLobbyChannelEventHandlers() {
+        lobbyChannel?
+            .on("join")
+            .sink(receiveCompletion: {
+                switch $0 {
+                case .failure(let error):
+                    self.addText("Failed to join channel: \(error)")
+                case .finished:
+                    self.addText("You joined the room.")
+                }
+            }, receiveValue: { _ in })
+            .store(in: &cancellables)
+
+        lobbyChannel?
+            .on("new:msg")
+            .sink(receiveCompletion: {
+                if case .failure(let error) = $0 {
+                    self.addText("Error waiting for new:msg - \(error)")
+                }
+            }, receiveValue: {
+                let payload = $0.payload
+                guard
+                    let username = payload["user"],
+                    let body = payload["body"] else { return }
+                let newMessage = "[\(username)] \(body)"
+                self.addText(newMessage)
+            })
+            .store(in: &cancellables)
+
+        lobbyChannel?
+            .on("new:msg")
+            .sink(receiveCompletion: {
+                if case .failure(let error) = $0 {
+                    self.addText("Error waiting for user:entered - \(error)")
+                }
+            }, receiveValue: { _ in
+                self.addText("[anonymous entered]")
+            })
+            .store(in: &cancellables)
     }
-    
-    channel.delegateOn("new:msg", to: self) { (self, message) in
-      let payload = message.payload
-      guard
-        let username = payload["user"],
-        let body = payload["body"] else { return }
-      let newMessage = "[\(username)] \(body)"
-      self.addText(newMessage)
+
+    private func addText(_ text: String) {
+        DispatchQueue.main.async {
+            let updatedText = self.chatWindow.text.appending(text).appending("\n")
+            self.chatWindow.text = updatedText
+
+            let bottom = NSRange(location: updatedText.count - 1, length: 1)
+            self.chatWindow.scrollRangeToVisible(bottom)
+        }
     }
-    
-    channel.delegateOn("user:entered", to: self) { (self, message) in
-      self.addText("[anonymous entered]")
-    }
-    
-    self.lobbyChannel = channel
-    self.lobbyChannel
-      .join()
-      .delegateReceive("ok", to: self) { (self, _) in
-        self.addText("Joined Channel")
-      }.delegateReceive("error", to: self) { (self, message) in
-        self.addText("Failed to join channel: \(message.payload)")
-      }
-    self.socket.connect()
-    
-  }
-  
-  private func addText(_ text: String) {
-    DispatchQueue.main.async {
-      let updatedText = self.chatWindow.text.appending(text).appending("\n")
-      self.chatWindow.text = updatedText
-      
-      let bottom = NSMakeRange(updatedText.count - 1, 1)
-      self.chatWindow.scrollRangeToVisible(bottom)
-    }
-  }
-  
+
 }

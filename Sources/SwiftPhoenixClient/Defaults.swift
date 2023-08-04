@@ -20,73 +20,43 @@
 
 import Foundation
 
-/// A collection of default values and behaviors used accross the Client
+/// A collection of default values and behaviors used across the Client
 public class Defaults {
-  
-  /// Default timeout when sending messages
-  public static let timeoutInterval: TimeInterval = 10.0
-  
-  /// Default interval to send heartbeats on
-  public static let heartbeatInterval: TimeInterval = 30.0
-  
-  /// Default reconnect algorithm for the socket
-  public static let reconnectSteppedBackOff: (Int) -> TimeInterval = { tries in
-    return tries > 9 ? 5.0 : [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.5, 1.0, 2.0][tries - 1]
-  }
-  
-  /** Default rejoin algorithm for individual channels */
-  public static let rejoinSteppedBackOff: (Int) -> TimeInterval = { tries in
-    return tries > 3 ? 10 : [1, 2, 5][tries - 1]
-  }
 
-  public static let vsn = "2.0.0"
-  
-  /// Default encode function, utilizing JSONSerialization.data
-  public static let encode: (Any) -> Data = { json in
-    return try! JSONSerialization
-      .data(withJSONObject: json,
-            options: JSONSerialization.WritingOptions())
-  }
-  
-  /// Default decode function, utilizing JSONSerialization.jsonObject
-  public static let decode: (Data) -> Any? = { data in
-    guard
-      let json = try? JSONSerialization
-        .jsonObject(with: data,
-                    options: JSONSerialization.ReadingOptions())
-      else { return nil }
-    return json
-  }
-  
-  public static let heartbeatQueue: DispatchQueue
-    = DispatchQueue(label: "com.phoenix.socket.heartbeat")
-}
+    /// Default timeout when sending messages
+    public static let timeoutInterval: TimeInterval = 10.0
 
+    /// Default interval to send heartbeats on
+    public static let heartbeatInterval: TimeInterval = 30.0
 
-/// Represents the multiple states that a Channel can be in
-/// throughout it's lifecycle.
-public enum ChannelState: String {
-  case closed = "closed"
-  case errored = "errored"
-  case joined = "joined"
-  case joining = "joining"
-  case leaving = "leaving"
-}
-
-/// Represents the different events that can be sent through
-/// a channel regarding a Channel's lifecycle.
-public struct ChannelEvent {
-  public static let heartbeat = "heartbeat"
-  public static let join      = "phx_join"
-  public static let leave     = "phx_leave"
-  public static let reply     = "phx_reply"
-  public static let error     = "phx_error"
-  public static let close     = "phx_close"
-  
-  static func isLifecyleEvent(_ event: String) -> Bool {
-    switch event {
-    case join, leave, reply, error, close: return true
-    default: return false
+    /// Default reconnect algorithm for the socket
+    public static let reconnectSteppedBackOff: (Int) -> TimeInterval = { tries in
+        return tries > 9 ? 5.0 : [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.5, 1.0, 2.0][tries - 1]
     }
-  }
+
+    /** Default rejoin algorithm for individual channels */
+    public static let rejoinSteppedBackOff: (Int) -> TimeInterval = { tries in
+        return tries > 3 ? 10 : [1, 2, 5][tries - 1]
+    }
+
+    public static let vsn = "2.0.0"
+
+    /// Default encode function, utilizing JSONSerialization.data
+    public static let encode: (Any) throws -> Data = { json in
+        return try JSONSerialization
+            .data(withJSONObject: json,
+                  options: JSONSerialization.WritingOptions())
+    }
+
+    /// Default decode function, utilizing JSONSerialization.jsonObject
+    public static let decode: (Data) -> Any? = { data in
+        guard
+            let json = try? JSONSerialization
+                .jsonObject(with: data,
+                            options: JSONSerialization.ReadingOptions())
+        else { return nil }
+        return json
+    }
+
+    public static let heartbeatQueue = DispatchQueue(label: "com.phoenix.socket.heartbeat")
 }
