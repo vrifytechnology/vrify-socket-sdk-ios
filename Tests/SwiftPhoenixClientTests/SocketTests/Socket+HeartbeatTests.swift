@@ -20,9 +20,9 @@ extension SocketTests {
     }
 
     // disconnect invalidates the heartbeat timer
-    func testOnDisconnectInvalidateHeartbeatTimer() {
+    func testOnDisconnectInvalidateHeartbeatTimer() async {
         let socket = createHeartbeatTestSocket()
-        socket.resetHeartbeat()
+        await socket.resetHeartbeat()
 
         guard let heartbeatTimer = socket.heartbeatTimer else {
             XCTFail("heartbeattimer was Nil")
@@ -45,19 +45,19 @@ extension SocketTests {
 
 extension SocketTests {
     // resetHeartbeat clears any pending heartbeat
-    func testResetHeartbeatClearsPendingHearbeat() {
+    func testResetHeartbeatClearsPendingHearbeat() async {
         let socket = createHeartbeatTestSocket()
         socket.pendingHeartbeatRef = "1"
-        socket.resetHeartbeat()
+        await socket.resetHeartbeat()
 
         XCTAssertNil(socket.pendingHeartbeatRef)
     }
 
     // resetHeartbeat does not schedule heartbeat if skipHeartbeat == true
-    func testResetHeartbeatSkipHeartbeat() {
+    func testResetHeartbeatSkipHeartbeat() async {
         let socket = createHeartbeatTestSocket()
         socket.skipHeartbeat = true
-        socket.resetHeartbeat()
+        await socket.resetHeartbeat()
 
         XCTAssertNil(socket.heartbeatTimer)
     }
@@ -67,7 +67,7 @@ extension SocketTests {
         let mockWebSocket = URLSessionTransportMock()
         let socket = createHeartbeatTestSocket(webSocket: mockWebSocket)
         socket.heartbeatInterval = 1
-        socket.resetHeartbeat()
+        await socket.resetHeartbeat()
 
         guard let heartbeatTimer = socket.heartbeatTimer else {
             XCTFail("heartbeattimer was Nil")
@@ -88,12 +88,12 @@ extension SocketTests {
     }
 
     // resetHeartbeat should invalidate an old timer and create a new one
-    func testResetHeartbeatInvalidatesOldTimer() {
+    func testResetHeartbeatInvalidatesOldTimer() async {
         let mockWebSocket = URLSessionTransportMock()
         let socket = createHeartbeatTestSocket(webSocket: mockWebSocket)
 
         XCTAssertNil(socket.heartbeatTimer)
-        socket.resetHeartbeat()
+        await socket.resetHeartbeat()
 
         guard let oldTimer = socket.heartbeatTimer,
               let heartbeatTimer = socket.heartbeatTimer else {
@@ -102,7 +102,7 @@ extension SocketTests {
         }
 
         XCTAssert(heartbeatTimer.isValid)
-        socket.resetHeartbeat()
+        await socket.resetHeartbeat()
 
         XCTAssertFalse(oldTimer.isValid)
         XCTAssert(oldTimer != socket.heartbeatTimer)
